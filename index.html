@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>trell0</title>
+    <style>
+      :root {
+        --bg: #f9f9f9;
+        --fg: #1a1a1a;
+        --panel: #ffffff;
+        --card: #ffffff;
+        --line: rgba(0, 0, 0, 0.1);
+        --hover: rgba(0, 0, 0, 0.04);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0a0a0a;
+          --fg: #d4d4d8;
+          --panel: #121212;
+          --card: #161616;
+          --line: rgba(255, 255, 255, 0.12);
+          --hover: rgba(255, 255, 255, 0.06);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .board {
+        height: 100%;
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+        padding: 40px;
+        overflow-x: auto;
+      }
+
+      .column {
+        flex: 0 0 300px;
+        max-height: 100%;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+
+      .column-header {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 4px 4px 12px;
+      }
+      .column-header .title {
+        font-size: 14px;
+        font-weight: 500;
+        text-transform: lowercase;
+        opacity: 0.6;
+      }
+      .column-header .count {
+        font-size: 12px;
+        opacity: 0.3;
+      }
+
+      .cards {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        overflow-y: auto;
+        min-height: 12px;
+        border-radius: 12px;
+      }
+      .cards.drag-over {
+        background: var(--hover);
+      }
+
+      .card {
+        position: relative;
+        background: var(--card-bg, var(--card));
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 12px 34px 12px 14px;
+        cursor: pointer;
+        font-size: 15px;
+        font-weight: 300;
+        line-height: 1.4;
+      }
+      .card.dragging {
+        opacity: 0.4;
+      }
+      .card.empty .card-title {
+        opacity: 0.3;
+      }
+      .card-title {
+        display: block;
+        word-break: break-word;
+      }
+      .card-x {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        padding: 4px;
+        border: none;
+        background: none;
+        color: var(--fg);
+        cursor: pointer;
+        font-size: 16px;
+        line-height: 1;
+        opacity: 0.3;
+      }
+      .card-x:hover {
+        opacity: 1;
+      }
+
+      .add-card {
+        margin-top: 4px;
+        padding: 10px 6px;
+        border: none;
+        background: none;
+        color: var(--fg);
+        cursor: pointer;
+        text-align: left;
+        font-size: 14px;
+        text-transform: lowercase;
+        border-radius: 8px;
+        opacity: 0.4;
+      }
+      .add-card:hover {
+        opacity: 0.9;
+        background: var(--hover);
+      }
+
+      .overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        background: rgba(0, 0, 0, 0.4);
+      }
+      .overlay.open {
+        display: flex;
+      }
+      .modal {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        max-width: 520px;
+        max-height: 76vh;
+        padding: 20px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+      }
+      .modal-close {
+        position: absolute;
+        top: 12px;
+        right: 14px;
+        padding: 2px;
+        border: none;
+        background: none;
+        color: var(--fg);
+        cursor: pointer;
+        font-size: 22px;
+        line-height: 1;
+        opacity: 0.4;
+      }
+      .modal-close:hover {
+        opacity: 1;
+      }
+      .status {
+        font-size: 13px;
+        text-transform: lowercase;
+        opacity: 0.4;
+        margin-bottom: 12px;
+        padding-right: 30px;
+      }
+      .editor {
+        flex: 1;
+        min-height: 160px;
+        width: 100%;
+        resize: none;
+        border: none;
+        outline: none;
+        background: none;
+        color: var(--fg);
+        font-family: inherit;
+        font-size: 16px;
+        font-weight: 300;
+        line-height: 1.6;
+      }
+
+      .color-picker {
+        display: flex;
+        gap: 8px;
+        margin-top: 14px;
+      }
+      .color-dot {
+        width: 16px;
+        height: 16px;
+        padding: 0;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: var(--dot);
+        cursor: pointer;
+        opacity: 0.6;
+      }
+      .color-dot:hover {
+        opacity: 1;
+      }
+      .color-dot.active {
+        opacity: 1;
+        outline: 2px solid var(--fg);
+        outline-offset: 1px;
+      }
+
+      @media (max-width: 640px) {
+        .board {
+          gap: 14px;
+          padding: 24px 16px;
+        }
+        .column {
+          flex: 0 0 84vw;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="board" id="board"></div>
+
+    <div class="overlay" id="overlay">
+      <div class="modal">
+        <button class="modal-close" id="closeBtn" title="close (esc)">
+          &times;
+        </button>
+        <div class="status" id="status">0 words</div>
+        <textarea
+          class="editor"
+          id="editor"
+          spellcheck="false"
+          placeholder="start writing..."
+        ></textarea>
+        <div class="color-picker" id="colorPicker"></div>
+      </div>
+    </div>
+
+    <script>
+      const STORAGE_KEY = "trell0-board-state";
+
+      const CARD_COLORS = [
+        "",
+        "#FFB3B3",
+        "#FFD9B3",
+        "#FFFFE0",
+        "#B3FFB3",
+        "#B3FFFF",
+        "#B3B3FF",
+        "#FFB3FF",
+      ];
+
+      function defaultColumns() {
+        return [
+          { title: "to do", cards: [] },
+          { title: "in progress", cards: [] },
+          { title: "done", cards: [] },
+        ];
+      }
+
+      const board = document.getElementById("board");
+      const overlay = document.getElementById("overlay");
+      const editor = document.getElementById("editor");
+      const statusEl = document.getElementById("status");
+      const closeBtn = document.getElementById("closeBtn");
+      const colorPicker = document.getElementById("colorPicker");
+
+      let dragged = null;
+      let activeCard = null;
+
+      function loadState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) return defaultColumns();
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) return defaultColumns();
+          const base = defaultColumns();
+          return parsed.map((col, i) => ({
+            title: col.title || base[i]?.title || "untitled",
+            cards: Array.isArray(col.cards)
+              ? col.cards.map((c) =>
+                  typeof c === "string"
+                    ? { body: c, color: "" }
+                    : { body: c?.body || "", color: c?.color || "" },
+                )
+              : [],
+          }));
+        } catch {
+          return defaultColumns();
+        }
+      }
+
+      let state = loadState();
+
+      function saveState() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch {}
+      }
+
+      function syncStateFromDOM() {
+        state = [...board.querySelectorAll(".column")].map((col) => ({
+          title: col.querySelector(".title").textContent || "untitled",
+          cards: [...col.querySelectorAll(".card")].map((card) => ({
+            body: card.dataset.body || "",
+            color: card.dataset.color || "",
+          })),
+        }));
+      }
+
+      function titleFromBody(body) {
+        return (body || "").trim().split("\n")[0] || "untitled";
+      }
+
+      function refreshCard(card) {
+        const body = card.dataset.body || "";
+        card.querySelector(".card-title").textContent = titleFromBody(body);
+        card.classList.toggle("empty", !body.trim());
+        if (card.dataset.color)
+          card.style.setProperty("--card-bg", card.dataset.color);
+        else card.style.removeProperty("--card-bg");
+      }
+
+      function makeCard(data) {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.draggable = true;
+        card.dataset.body = data.body || "";
+        card.dataset.color = data.color || "";
+
+        const title = document.createElement("span");
+        title.className = "card-title";
+        card.appendChild(title);
+
+        const x = document.createElement("button");
+        x.className = "card-x";
+        x.innerHTML = "&times;";
+        card.appendChild(x);
+
+        refreshCard(card);
+
+        card.addEventListener("click", () => openEditor(card));
+
+        x.addEventListener("click", (e) => {
+          e.stopPropagation();
+          card.remove();
+          syncStateFromDOM();
+          saveState();
+          updateCounts();
+        });
+
+        card.addEventListener("dragstart", () => {
+          dragged = card;
+          card.classList.add("dragging");
+        });
+        card.addEventListener("dragend", () => {
+          card.classList.remove("dragging");
+          dragged = null;
+          document
+            .querySelectorAll(".cards.drag-over")
+            .forEach((c) => c.classList.remove("drag-over"));
+        });
+
+        return card;
+      }
+
+      function buildBoard() {
+        board.innerHTML = "";
+        state.forEach((col) => {
+          const column = document.createElement("div");
+          column.className = "column";
+
+          const header = document.createElement("div");
+          header.className = "column-header";
+          const title = document.createElement("span");
+          title.className = "title";
+          title.textContent = col.title;
+          const count = document.createElement("span");
+          count.className = "count";
+          header.append(title, count);
+          column.appendChild(header);
+
+          const cards = document.createElement("div");
+          cards.className = "cards";
+          col.cards.forEach((c) => cards.appendChild(makeCard(c)));
+          column.appendChild(cards);
+
+          const add = document.createElement("button");
+          add.className = "add-card";
+          add.textContent = "+ add card";
+          add.addEventListener("click", () => {
+            cards.appendChild(makeCard({ body: "", color: "" }));
+            syncStateFromDOM();
+            saveState();
+            updateCounts();
+          });
+          column.appendChild(add);
+
+          cards.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            cards.classList.add("drag-over");
+            if (!dragged) return;
+            const after = afterElement(cards, e.clientY);
+            if (after == null) cards.appendChild(dragged);
+            else cards.insertBefore(dragged, after);
+          });
+          cards.addEventListener("dragleave", (e) => {
+            if (!cards.contains(e.relatedTarget))
+              cards.classList.remove("drag-over");
+          });
+          cards.addEventListener("drop", (e) => {
+            e.preventDefault();
+            cards.classList.remove("drag-over");
+            syncStateFromDOM();
+            saveState();
+            updateCounts();
+          });
+
+          board.appendChild(column);
+        });
+        updateCounts();
+      }
+
+      function afterElement(container, y) {
+        const els = [...container.querySelectorAll(".card:not(.dragging)")];
+        let closest = { offset: -Infinity, el: null };
+        for (const el of els) {
+          const box = el.getBoundingClientRect();
+          const offset = y - box.top - box.height / 2;
+          if (offset < 0 && offset > closest.offset) closest = { offset, el };
+        }
+        return closest.el;
+      }
+
+      function updateCounts() {
+        document.querySelectorAll(".column").forEach((col) => {
+          col.querySelector(".count").textContent =
+            col.querySelectorAll(".card").length;
+        });
+      }
+
+      function updateWordCount() {
+        const text = editor.value.trim();
+        const wc = text ? text.split(/\s+/).length : 0;
+        statusEl.textContent = wc + (wc === 1 ? " word" : " words");
+      }
+
+      function renderColorPicker() {
+        colorPicker.innerHTML = "";
+        const current = activeCard?.dataset.color || "";
+        CARD_COLORS.forEach((color) => {
+          const dot = document.createElement("button");
+          dot.className = "color-dot";
+          dot.style.setProperty("--dot", color || "var(--card)");
+          dot.title = color ? "set card color" : "default";
+          if (color === current) dot.classList.add("active");
+          dot.addEventListener("click", () => {
+            if (!activeCard) return;
+            activeCard.dataset.color = color;
+            refreshCard(activeCard);
+            syncStateFromDOM();
+            saveState();
+            renderColorPicker();
+          });
+          colorPicker.appendChild(dot);
+        });
+      }
+
+      function openEditor(card) {
+        activeCard = card;
+        editor.value = card.dataset.body || "";
+        updateWordCount();
+        renderColorPicker();
+        overlay.classList.add("open");
+        editor.focus();
+      }
+
+      function closeEditor() {
+        if (!activeCard) return;
+        activeCard.dataset.body = editor.value;
+        refreshCard(activeCard);
+        syncStateFromDOM();
+        saveState();
+        activeCard = null;
+        overlay.classList.remove("open");
+      }
+
+      editor.addEventListener("input", () => {
+        updateWordCount();
+        if (!activeCard) return;
+        activeCard.dataset.body = editor.value;
+        refreshCard(activeCard);
+        syncStateFromDOM();
+        saveState();
+      });
+
+      closeBtn.addEventListener("click", closeEditor);
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) closeEditor();
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && activeCard) closeEditor();
+      });
+
+      buildBoard();
+    </script>
+  </body>
+</html>
