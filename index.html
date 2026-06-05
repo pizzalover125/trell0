@@ -6,23 +6,18 @@
     <title>trell0</title>
     <style>
       :root {
-        --bg: #f9f9f9;
-        --fg: #1a1a1a;
-        --panel: #ffffff;
-        --card: #ffffff;
-        --line: rgba(0, 0, 0, 0.1);
-        --hover: rgba(0, 0, 0, 0.04);
-      }
+        --color-paper: #f9f9f9;
+        --color-ink: #1a1a1a;
+        --color-shelf: #ffffff;
 
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --bg: #0a0a0a;
-          --fg: #d4d4d8;
-          --panel: #121212;
-          --card: #161616;
-          --line: rgba(255, 255, 255, 0.12);
-          --hover: rgba(255, 255, 255, 0.06);
-        }
+        --bg: var(--color-paper);
+        --fg: var(--color-ink);
+        --sidebar: var(--color-shelf);
+        --curve: cubic-bezier(0.16, 1, 0.3, 1);
+
+        --card: #ffffff;
+        --line: rgba(0, 0, 0, 0.06);
+        --hover: rgba(0, 0, 0, 0.035);
       }
 
       * {
@@ -37,23 +32,64 @@
       body {
         margin: 0;
         overflow: hidden;
-        background: var(--bg);
+        background-color: var(--bg);
         color: var(--fg);
-        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
         -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Geist Variable", sans-serif;
+        transition:
+          background-color 0.5s,
+          color 0.5s;
+      }
+
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+
+      .topbar {
+        position: fixed;
+        top: 40px;
+        left: 40px;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        pointer-events: none;
+      }
+      .logo-mark {
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        border: 1px solid var(--fg);
+        opacity: 0.2;
+      }
+      .topbar h1 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+        text-transform: lowercase;
+        opacity: 0.5;
       }
 
       .board {
         height: 100%;
+        width: 100%;
         display: flex;
-        gap: 20px;
+        gap: 22px;
         align-items: flex-start;
-        padding: 40px;
+        padding: 56px 40px 40px;
         overflow-x: auto;
+        overflow-y: hidden;
       }
 
       .column {
-        flex: 0 0 300px;
+        flex: 0 0 320px;
         max-height: 100%;
         display: flex;
         flex-direction: column;
@@ -63,211 +99,446 @@
       .column-header {
         display: flex;
         align-items: baseline;
-        gap: 8px;
-        padding: 4px 4px 12px;
+        gap: 10px;
+        padding: 8px 6px 14px;
       }
       .column-header .title {
         font-size: 14px;
         font-weight: 500;
+        letter-spacing: -0.02em;
         text-transform: lowercase;
         opacity: 0.6;
       }
       .column-header .count {
         font-size: 12px;
-        opacity: 0.3;
+        font-weight: 400;
+        opacity: 0.25;
+        letter-spacing: -0.01em;
       }
 
       .cards {
+        position: relative;
         display: flex;
         flex-direction: column;
-        gap: 8px;
         overflow-y: auto;
+        padding-bottom: 0;
         min-height: 12px;
-        border-radius: 12px;
+        transition: background-color 0.2s var(--curve);
+        border-radius: 16px;
       }
       .cards.drag-over {
-        background: var(--hover);
+        background-color: var(--hover);
       }
 
       .card {
         position: relative;
         background: var(--card-bg, var(--card));
         border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 12px 34px 12px 14px;
+        border-radius: 14px;
+        padding: 14px 38px 14px 16px;
+        margin-bottom: 8px;
         cursor: pointer;
         font-size: 15px;
         font-weight: 300;
-        line-height: 1.4;
+        line-height: 1.5;
+        letter-spacing: -0.01em;
+        transition:
+          transform 0.25s var(--curve),
+          box-shadow 0.25s var(--curve),
+          opacity 0.25s var(--curve),
+          border-color 0.25s var(--curve);
+      }
+      .card:hover {
+        transform: translateY(-1px);
+        border-color: color-mix(in srgb, var(--fg) 14%, transparent);
+        box-shadow: 0 6px 20px -8px rgba(0, 0, 0, 0.25);
       }
       .card.dragging {
-        opacity: 0.4;
+        opacity: 0.35;
+      }
+      .card-enter {
+        animation: cardEnter 520ms var(--curve) both;
+      }
+      .card-removing {
+        pointer-events: none;
+        z-index: 5;
+        animation: cardRemove 520ms var(--curve) forwards;
+      }
+      @keyframes cardEnter {
+        from {
+          opacity: 0;
+          transform: translateY(18px) scale(0.96);
+          filter: blur(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+          filter: blur(0);
+        }
+      }
+      @keyframes cardRemove {
+        0% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        40% {
+          opacity: 0.5;
+          transform: translateY(-3px) scale(0.985);
+        }
+        100% {
+          opacity: 0;
+          transform: translateY(-10px) scale(0.94);
+          filter: blur(6px);
+        }
       }
       .card.empty .card-title {
-        opacity: 0.3;
+        opacity: 0.25;
       }
       .card-title {
         display: block;
+        text-transform: none;
+        overflow-wrap: break-word;
         word-break: break-word;
       }
       .card-x {
         position: absolute;
-        right: 8px;
+        right: 10px;
         top: 50%;
         transform: translateY(-50%);
-        padding: 4px;
+        padding: 5px;
+        line-height: 0;
         border: none;
         background: none;
         color: var(--fg);
         cursor: pointer;
-        font-size: 16px;
-        line-height: 1;
-        opacity: 0.3;
+        opacity: 0;
+        transition: opacity 0.2s var(--curve);
+      }
+      .card:hover .card-x {
+        opacity: 0.35;
       }
       .card-x:hover {
-        opacity: 1;
+        opacity: 1 !important;
       }
 
       .add-card {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
         margin-top: 4px;
-        padding: 10px 6px;
+        padding: 12px 16px 12px 6px;
         border: none;
         background: none;
         color: var(--fg);
         cursor: pointer;
-        text-align: left;
+        border-radius: 12px;
         font-size: 14px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
         text-transform: lowercase;
-        border-radius: 8px;
         opacity: 0.4;
+        transition:
+          opacity 0.2s,
+          background-color 0.2s;
       }
       .add-card:hover {
         opacity: 0.9;
         background: var(--hover);
       }
 
-      .overlay {
+      .icon {
+        width: 18px;
+        height: 18px;
+        flex: 0 0 auto;
+      }
+
+      .editor-overlay {
         position: fixed;
         inset: 0;
         z-index: 100;
-        display: none;
+        display: flex;
         align-items: center;
         justify-content: center;
-        padding: 24px;
-        background: rgba(0, 0, 0, 0.4);
+        padding: 32px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.4s var(--curve);
       }
-      .overlay.open {
-        display: flex;
+      .editor-overlay.open {
+        opacity: 1;
+        pointer-events: auto;
       }
-      .modal {
+      .editor-backdrop {
+        position: absolute;
+        inset: 0;
+        background: color-mix(in srgb, var(--bg) 65%, transparent);
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+      }
+      .editor-modal {
         position: relative;
+        z-index: 1;
         display: flex;
         flex-direction: column;
         width: 100%;
-        max-width: 520px;
+        max-width: 540px;
         max-height: 76vh;
-        padding: 20px;
-        background: var(--panel);
+        padding: 22px 24px 18px;
+        background: var(--sidebar);
         border: 1px solid var(--line);
-        border-radius: 14px;
+        border-radius: 20px;
+        box-shadow: 0 30px 80px -24px rgba(0, 0, 0, 0.45);
+        opacity: 0;
+        transform: scale(0.985) translateY(8px);
+        transition:
+          opacity 0.4s var(--curve),
+          transform 0.5s var(--curve);
       }
-      .modal-close {
+      .editor-overlay.open .editor-modal {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+
+      .editor-close {
         position: absolute;
-        top: 12px;
-        right: 14px;
-        padding: 2px;
+        top: 16px;
+        right: 16px;
+        z-index: 2;
+        padding: 6px;
+        line-height: 0;
         border: none;
         background: none;
         color: var(--fg);
         cursor: pointer;
-        font-size: 22px;
-        line-height: 1;
-        opacity: 0.4;
+        opacity: 0.25;
+        transition: opacity 0.2s var(--curve);
       }
-      .modal-close:hover {
+      .editor-close:hover {
+        opacity: 0.9;
+      }
+
+      .status-wrap {
+        display: flex;
+        align-items: center;
+        margin-bottom: 12px;
+        padding-right: 34px;
+      }
+      .status-bar {
+        font-size: 13px;
+        font-weight: 300;
+        letter-spacing: -0.02em;
+        text-transform: lowercase;
+        color: var(--fg);
+        transition:
+          opacity 0.3s var(--curve),
+          transform 0.3s var(--curve),
+          filter 0.3s var(--curve);
+      }
+      .status-visible {
+        opacity: 0.4;
+        transform: translateY(0);
+      }
+      .status-hidden {
+        opacity: 0;
+        transform: translateY(-5px);
+      }
+      .status-bar:hover {
         opacity: 1;
       }
-      .status {
-        font-size: 13px;
-        text-transform: lowercase;
-        opacity: 0.4;
-        margin-bottom: 12px;
-        padding-right: 30px;
+
+      .card-color-picker {
+        margin-top: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 7px;
+        opacity: 0;
+        transform: translateY(-4px);
+        pointer-events: none;
+        transition:
+          opacity 0.25s var(--curve),
+          transform 0.25s var(--curve);
       }
-      .editor {
+      .editor-overlay.open .card-color-picker {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+      }
+      .color-dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 999px;
+        border: 1px solid color-mix(in srgb, var(--fg) 15%, transparent);
+        background: var(--dot);
+        cursor: pointer;
+        opacity: 0.5;
+        transform: scale(1);
+        transition:
+          opacity 0.2s var(--curve),
+          transform 0.2s var(--curve),
+          border-color 0.2s var(--curve);
+      }
+      .color-dot:hover {
+        opacity: 0.9;
+        transform: scale(1.06);
+      }
+      .color-dot.active {
+        opacity: 1;
+        transform: scale(1.1);
+        border-color: color-mix(in srgb, var(--fg) 35%, transparent);
+      }
+
+      .editor-scroll {
         flex: 1;
-        min-height: 160px;
+        min-height: 0;
         width: 100%;
-        resize: none;
-        border: none;
-        outline: none;
-        background: none;
-        color: var(--fg);
+        padding: 4px 2px 6px;
+        overflow-y: auto;
+        scroll-behavior: smooth;
+      }
+      .editor-wrap {
+        width: 100%;
+        max-width: 100%;
+        position: relative;
+      }
+
+      .custom-cursor {
+        position: absolute;
+        width: 1.5px;
+        height: 1.2em;
+        background: var(--fg);
+        opacity: 0.4;
+        pointer-events: none;
+        z-index: 10;
+        transform: translateY(15%);
+        will-change: left, top;
+        transition:
+          left 80ms cubic-bezier(0.16, 1, 0.3, 1),
+          top 80ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .text-base-style {
         font-family: inherit;
         font-size: 16px;
         font-weight: 300;
         line-height: 1.6;
+        letter-spacing: -0.01em;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        display: block;
+        width: 100%;
+        min-height: 160px;
+        outline: none;
+        color: var(--fg);
+        caret-color: transparent !important;
       }
 
-      .color-picker {
-        display: flex;
-        gap: 8px;
-        margin-top: 14px;
+      [contenteditable] {
+        caret-color: transparent !important;
       }
-      .color-dot {
-        width: 16px;
-        height: 16px;
-        padding: 0;
-        border-radius: 999px;
-        border: 1px solid var(--line);
-        background: var(--dot);
-        cursor: pointer;
-        opacity: 0.6;
+      [contenteditable]:empty:before {
+        content: attr(data-placeholder);
+        color: var(--fg);
+        opacity: 0.2;
+        pointer-events: none;
       }
-      .color-dot:hover {
-        opacity: 1;
+
+      .char-fade {
+        display: inline-block;
+        opacity: 0;
+        animation: char-entry 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        will-change: transform, opacity;
       }
-      .color-dot.active {
-        opacity: 1;
-        outline: 2px solid var(--fg);
-        outline-offset: 1px;
+      .char-fade.stable {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+      }
+      @keyframes char-entry {
+        from {
+          opacity: 0;
+          transform: translateY(2px);
+          filter: blur(2px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+          filter: blur(0);
+        }
       }
 
       @media (max-width: 640px) {
         .board {
           gap: 14px;
-          padding: 24px 16px;
+          padding: 44px 16px 24px;
+          scroll-snap-type: x proximity;
         }
         .column {
           flex: 0 0 84vw;
+          scroll-snap-align: start;
+        }
+        .editor-overlay {
+          padding: 16px;
+        }
+        .editor-modal {
+          max-width: 100%;
+          max-height: 84vh;
+          padding: 20px 18px 16px;
+          border-radius: 16px;
+        }
+        .text-base-style {
+          font-size: 15px;
         }
       }
     </style>
   </head>
   <body>
-    <div class="board" id="board"></div>
+    <div class="board no-scrollbar" id="board"></div>
 
-    <div class="overlay" id="overlay">
-      <div class="modal">
-        <button class="modal-close" id="closeBtn" title="close (esc)">
-          &times;
-        </button>
-        <div class="status" id="status">0 words</div>
-        <textarea
-          class="editor"
-          id="editor"
-          spellcheck="false"
-          placeholder="start writing..."
-        ></textarea>
-        <div class="color-picker" id="colorPicker"></div>
+    <div class="editor-overlay" id="overlay">
+      <div class="editor-backdrop" id="backdrop"></div>
+      <div class="editor-modal" id="modal">
+        <button class="editor-close" id="closeBtn" title="close (esc)"></button>
+        <div class="status-wrap">
+          <div class="status-bar status-visible" id="status">0 words</div>
+        </div>
+        <div class="editor-scroll no-scrollbar">
+          <div class="editor-wrap">
+            <div class="custom-cursor" id="cursor"></div>
+            <div
+              id="editor"
+              class="text-base-style"
+              contenteditable="true"
+              spellcheck="false"
+              data-placeholder="start writing..."
+            ></div>
+          </div>
+        </div>
+        <div class="card-color-picker" id="cardColorPicker"></div>
       </div>
     </div>
 
     <script>
-      const STORAGE_KEY = "trell0-board-state";
+      const ICON_PLUS =
+        '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>';
+      const ICON_X =
+        '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>';
+      const ICON_X_LG =
+        '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>';
 
+      document.getElementById("closeBtn").innerHTML = ICON_X_LG;
+
+      const COLUMNS = [
+        { title: "to do", cards: [] },
+        { title: "in progress", cards: [] },
+        { title: "done", cards: [] },
+      ];
+
+      const STORAGE_KEY = "trell0-board-state";
       const CARD_COLORS = [
-        "",
+        "#FFFFFF",
         "#FFB3B3",
         "#FFD9B3",
         "#FFFFE0",
@@ -277,43 +548,46 @@
         "#FFB3FF",
       ];
 
-      function defaultColumns() {
-        return [
-          { title: "to do", cards: [] },
-          { title: "in progress", cards: [] },
-          { title: "done", cards: [] },
-        ];
+      let uid = 1;
+
+      function getCleanText(html) {
+        if (!html) return "";
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        return doc.body.textContent || "";
+      }
+      function esc(c) {
+        return c
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+      function titleFromBody(body) {
+        return getCleanText(body).trim().split("\n")[0] || "untitled";
       }
 
       const board = document.getElementById("board");
-      const overlay = document.getElementById("overlay");
-      const editor = document.getElementById("editor");
-      const statusEl = document.getElementById("status");
-      const closeBtn = document.getElementById("closeBtn");
-      const colorPicker = document.getElementById("colorPicker");
-
-      let dragged = null;
-      let activeCard = null;
 
       function loadState() {
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
-          if (!raw) return defaultColumns();
+          if (!raw) return COLUMNS;
           const parsed = JSON.parse(raw);
-          if (!Array.isArray(parsed)) return defaultColumns();
-          const base = defaultColumns();
+          if (!Array.isArray(parsed)) return COLUMNS;
           return parsed.map((col, i) => ({
-            title: col.title || base[i]?.title || "untitled",
+            title: col.title || COLUMNS[i]?.title || "untitled",
             cards: Array.isArray(col.cards)
-              ? col.cards.map((c) =>
-                  typeof c === "string"
-                    ? { body: c, color: "" }
-                    : { body: c?.body || "", color: c?.color || "" },
-                )
+              ? col.cards.map((item) => {
+                  if (typeof item === "string")
+                    return { body: item, color: "" };
+                  return {
+                    body: item?.body || "",
+                    color: item?.color || "",
+                  };
+                })
               : [],
           }));
         } catch {
-          return defaultColumns();
+          return COLUMNS;
         }
       }
 
@@ -327,33 +601,25 @@
 
       function syncStateFromDOM() {
         state = [...board.querySelectorAll(".column")].map((col) => ({
-          title: col.querySelector(".title").textContent || "untitled",
-          cards: [...col.querySelectorAll(".card")].map((card) => ({
-            body: card.dataset.body || "",
-            color: card.dataset.color || "",
-          })),
+          title: col.querySelector(".title")?.textContent || "untitled",
+          cards: [...col.querySelectorAll(".card:not(.card-removing)")].map(
+            (card) => ({
+              body: card.dataset.body || "",
+              color: card.dataset.color || "",
+            }),
+          ),
         }));
       }
 
-      function titleFromBody(body) {
-        return (body || "").trim().split("\n")[0] || "untitled";
-      }
-
-      function refreshCard(card) {
-        const body = card.dataset.body || "";
-        card.querySelector(".card-title").textContent = titleFromBody(body);
-        card.classList.toggle("empty", !body.trim());
-        if (card.dataset.color)
-          card.style.setProperty("--card-bg", card.dataset.color);
-        else card.style.removeProperty("--card-bg");
-      }
-
-      function makeCard(data) {
+      function makeCard(input) {
+        const body = typeof input === "string" ? input : input?.body || "";
+        const color = typeof input === "string" ? "" : input?.color || "";
         const card = document.createElement("div");
-        card.className = "card";
+        card.className = "card card-enter";
         card.draggable = true;
-        card.dataset.body = data.body || "";
-        card.dataset.color = data.color || "";
+        card.dataset.id = "c" + uid++;
+        card.dataset.body = body || "";
+        card.dataset.color = color;
 
         const title = document.createElement("span");
         title.className = "card-title";
@@ -361,19 +627,47 @@
 
         const x = document.createElement("button");
         x.className = "card-x";
-        x.innerHTML = "&times;";
+        x.innerHTML = ICON_X;
         card.appendChild(x);
 
         refreshCard(card);
 
         card.addEventListener("click", () => openEditor(card));
-
         x.addEventListener("click", (e) => {
           e.stopPropagation();
-          card.remove();
+          const add = card.closest(".column").querySelector(".add-card");
+
+          const movers = [];
+          let sib = card.nextElementSibling;
+          while (sib) {
+            if (sib.classList.contains("card")) movers.push(sib);
+            sib = sib.nextElementSibling;
+          }
+          movers.push(add);
+          const fromTops = movers.map((el) => el.getBoundingClientRect().top);
+
+          const offTop = card.offsetTop;
+          const w = card.offsetWidth;
+          card.style.position = "absolute";
+          card.style.top = offTop + "px";
+          card.style.left = "0";
+          card.style.width = w + "px";
+          card.style.margin = "0";
+          card.classList.add("card-removing");
+
+          movers.forEach((el, i) => animateAddButton(el, fromTops[i]));
+
           syncStateFromDOM();
-          saveState();
           updateCounts();
+          saveState();
+
+          card.addEventListener(
+            "animationend",
+            () => {
+              card.remove();
+            },
+            { once: true },
+          );
         });
 
         card.addEventListener("dragstart", () => {
@@ -391,35 +685,52 @@
         return card;
       }
 
+      function refreshCard(card) {
+        const body = card.dataset.body;
+        const clean = titleFromBody(body);
+        card.querySelector(".card-title").textContent = clean;
+        card.classList.toggle("empty", !getCleanText(body).trim());
+        if (card.dataset.color)
+          card.style.setProperty("--card-bg", card.dataset.color);
+        else card.style.removeProperty("--card-bg");
+      }
+
       function buildBoard() {
         board.innerHTML = "";
-        state.forEach((col) => {
+        state.forEach((col, colIndex) => {
           const column = document.createElement("div");
           column.className = "column";
 
           const header = document.createElement("div");
           header.className = "column-header";
-          const title = document.createElement("span");
-          title.className = "title";
-          title.textContent = col.title;
-          const count = document.createElement("span");
-          count.className = "count";
-          header.append(title, count);
+          header.innerHTML =
+            '<span class="title">' +
+            col.title +
+            '</span><span class="count"></span>';
           column.appendChild(header);
 
           const cards = document.createElement("div");
-          cards.className = "cards";
-          col.cards.forEach((c) => cards.appendChild(makeCard(c)));
+          cards.className = "cards no-scrollbar";
           column.appendChild(cards);
+
+          col.cards.forEach((text) => cards.appendChild(makeCard(text)));
 
           const add = document.createElement("button");
           add.className = "add-card";
-          add.textContent = "+ add card";
+          add.innerHTML = ICON_PLUS + "<span>add card</span>";
           add.addEventListener("click", () => {
-            cards.appendChild(makeCard({ body: "", color: "" }));
-            syncStateFromDOM();
-            saveState();
+            const addTop = add.getBoundingClientRect().top;
+            const c = makeCard({ body: "", color: "" });
+            cards.appendChild(c);
+
+            state[colIndex].cards.push({ body: "", color: "" });
             updateCounts();
+            saveState();
+            animateAddButton(add, addTop);
+
+            setTimeout(() => {
+              c.classList.remove("card-enter");
+            }, 520);
           });
           column.appendChild(add);
 
@@ -439,8 +750,8 @@
             e.preventDefault();
             cards.classList.remove("drag-over");
             syncStateFromDOM();
-            saveState();
             updateCounts();
+            saveState();
           });
 
           board.appendChild(column);
@@ -459,52 +770,214 @@
         return closest.el;
       }
 
+      function animateAddButton(add, fromTop) {
+        const toTop = add.getBoundingClientRect().top;
+        const delta = fromTop - toTop;
+        if (!delta) return;
+        const easing =
+          getComputedStyle(document.documentElement)
+            .getPropertyValue("--curve")
+            .trim() || "cubic-bezier(0.16, 1, 0.3, 1)";
+        add.getAnimations().forEach((anim) => anim.cancel());
+        add.animate(
+          [
+            { transform: `translateY(${delta}px)` },
+            { transform: "translateY(0)" },
+          ],
+          { duration: 520, easing },
+        );
+      }
+
       function updateCounts() {
         document.querySelectorAll(".column").forEach((col) => {
-          col.querySelector(".count").textContent =
-            col.querySelectorAll(".card").length;
+          const n = col.querySelectorAll(".card:not(.card-removing)").length;
+          col.querySelector(".count").textContent = n;
         });
       }
 
-      function updateWordCount() {
-        const text = editor.value.trim();
-        const wc = text ? text.split(/\s+/).length : 0;
-        statusEl.textContent = wc + (wc === 1 ? " word" : " words");
-      }
+      let dragged = null;
+
+      const overlay = document.getElementById("overlay");
+      const backdrop = document.getElementById("backdrop");
+      const editor = document.getElementById("editor");
+      const cursorEl = document.getElementById("cursor");
+      const statusBar = document.getElementById("status");
+      const closeBtn = document.getElementById("closeBtn");
+      const cardColorPicker = document.getElementById("cardColorPicker");
+
+      let activeCard = null;
+      let isTyping = false;
+      let syncTimeout = null;
+      let typingTimeout = null;
 
       function renderColorPicker() {
-        colorPicker.innerHTML = "";
-        const current = activeCard?.dataset.color || "";
-        CARD_COLORS.forEach((color) => {
+        cardColorPicker.innerHTML = "";
+        CARD_COLORS.forEach((color, i) => {
           const dot = document.createElement("button");
           dot.className = "color-dot";
+          dot.type = "button";
           dot.style.setProperty("--dot", color || "var(--card)");
-          dot.title = color ? "set card color" : "default";
-          if (color === current) dot.classList.add("active");
+          dot.title = i === 0 ? "default" : "set card color";
           dot.addEventListener("click", () => {
             if (!activeCard) return;
             activeCard.dataset.color = color;
             refreshCard(activeCard);
             syncStateFromDOM();
             saveState();
-            renderColorPicker();
+            syncColorPickerState();
           });
-          colorPicker.appendChild(dot);
+          cardColorPicker.appendChild(dot);
         });
       }
 
-      function openEditor(card) {
-        activeCard = card;
-        editor.value = card.dataset.body || "";
+      function syncColorPickerState() {
+        const selected = activeCard?.dataset.color || "";
+        [...cardColorPicker.querySelectorAll(".color-dot")].forEach(
+          (dot, i) => {
+            dot.classList.toggle("active", CARD_COLORS[i] === selected);
+          },
+        );
+      }
+
+      function setTyping(t) {
+        isTyping = t;
+        statusBar.classList.toggle("status-hidden", t);
+        statusBar.classList.toggle("status-visible", !t);
+      }
+
+      function updateWordCount() {
+        const text = getCleanText(editor.innerHTML).trim();
+        const wc = text ? text.split(/\s+/).length : 0;
+        statusBar.textContent = wc + (wc === 1 ? " word" : " words");
+      }
+
+      function updateCursorPos() {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0 || !editor) return;
+
+        const range = selection.getRangeAt(0).cloneRange();
+        let rect;
+
+        if (range.collapsed) {
+          const dummy = document.createElement("span");
+          dummy.textContent = "\u200b";
+          range.insertNode(dummy);
+          rect = dummy.getBoundingClientRect();
+          const parent = dummy.parentNode;
+          if (parent) {
+            parent.removeChild(dummy);
+            parent.normalize();
+          }
+        } else {
+          rect = range.getBoundingClientRect();
+        }
+
+        if (rect) {
+          const editorRect = editor.getBoundingClientRect();
+          cursorEl.style.left = rect.left - editorRect.left + "px";
+          cursorEl.style.top = rect.top - editorRect.top + "px";
+        }
+      }
+
+      function edit() {
+        if (!editor) return;
+        const val = editor.innerHTML;
+
+        setTyping(true);
+        if (typingTimeout) clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => setTyping(false), 800);
+
+        if (syncTimeout) clearTimeout(syncTimeout);
+        syncTimeout = setTimeout(() => {
+          if (activeCard) {
+            activeCard.dataset.body = val;
+            refreshCard(activeCard);
+            syncStateFromDOM();
+            saveState();
+          }
+        }, 1000);
+
         updateWordCount();
-        renderColorPicker();
+        updateCursorPos();
+      }
+
+      function handleKeyDown(e) {
+        const isMod = e.metaKey || e.ctrlKey;
+
+        if (e.key === "Escape") {
+          closeEditor();
+          return;
+        }
+
+        if (e.key === "Enter") {
+          editor
+            .querySelectorAll(".char-fade:not(.stable)")
+            .forEach((el) => el.classList.add("stable"));
+          setTimeout(() => {
+            edit();
+            updateCursorPos();
+          }, 10);
+          return;
+        }
+
+        if (e.key.length === 1 && !isMod) {
+          e.preventDefault();
+          const char = e.key === " " ? "&nbsp;" : esc(e.key);
+          const html = '<span class="char-fade">' + char + "</span>";
+          document.execCommand("insertHTML", false, html);
+
+          const lastChar = editor.querySelector(".char-fade:not(.stable)");
+          if (lastChar) setTimeout(() => lastChar.classList.add("stable"), 400);
+
+          edit();
+        }
+
+        if (e.key === "Tab") {
+          e.preventDefault();
+          document.execCommand("insertHTML", false, "&nbsp;&nbsp;");
+          edit();
+        }
+
+        setTimeout(updateCursorPos, 0);
+      }
+
+      editor.addEventListener("input", edit);
+      editor.addEventListener("keydown", handleKeyDown);
+      editor.addEventListener("mouseup", updateCursorPos);
+      editor.addEventListener("keyup", updateCursorPos);
+
+      function openEditor(card) {
+        if (activeCard === card) return;
+        if (activeCard) closeEditor();
+
+        activeCard = card;
+
+        editor.innerHTML = card.dataset.body || "";
+        editor
+          .querySelectorAll(".char-fade")
+          .forEach((el) => el.classList.add("stable"));
+
+        setTyping(false);
+        updateWordCount();
+        syncColorPickerState();
+
         overlay.classList.add("open");
-        editor.focus();
+        requestAnimationFrame(() => {
+          editor.focus();
+          const range = document.createRange();
+          const sel = window.getSelection();
+          range.selectNodeContents(editor);
+          range.collapse(false);
+          sel.removeAllRanges();
+          sel.addRange(range);
+          requestAnimationFrame(updateCursorPos);
+        });
       }
 
       function closeEditor() {
         if (!activeCard) return;
-        activeCard.dataset.body = editor.value;
+        if (syncTimeout) clearTimeout(syncTimeout);
+        activeCard.dataset.body = editor.innerHTML;
         refreshCard(activeCard);
         syncStateFromDOM();
         saveState();
@@ -512,24 +985,15 @@
         overlay.classList.remove("open");
       }
 
-      editor.addEventListener("input", () => {
-        updateWordCount();
-        if (!activeCard) return;
-        activeCard.dataset.body = editor.value;
-        refreshCard(activeCard);
-        syncStateFromDOM();
-        saveState();
-      });
+      backdrop.addEventListener("click", () => closeEditor());
 
-      closeBtn.addEventListener("click", closeEditor);
-      overlay.addEventListener("click", (e) => {
-        if (e.target === overlay) closeEditor();
-      });
-      document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && activeCard) closeEditor();
+      closeBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeEditor();
       });
 
       buildBoard();
+      renderColorPicker();
     </script>
   </body>
 </html>
