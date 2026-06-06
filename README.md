@@ -10,6 +10,7 @@ minimalist productivity tool
 - slick animations
 - localStorage auto-save
 - dark mode
+- import/export (json)
 
 ## planned features
 
@@ -19,7 +20,5 @@ minimalist productivity tool
 - tags and filters
 - due dates
 - markdown support in node content
-- board templates
-- import/export (json)
 - realtime collaboration
 - mobile responsive layout

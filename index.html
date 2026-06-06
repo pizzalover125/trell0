@@ -93,11 +93,43 @@
         opacity: 0.5;
       }
 
-      .theme-toggle {
+      .top-actions {
         position: fixed;
         top: 40px;
         right: 40px;
         z-index: 20;
+        display: flex;
+        align-items: center;
+        gap: 2px;
+      }
+
+      .top-action {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 7px;
+        line-height: 0;
+        border: none;
+        background: none;
+        color: var(--fg);
+        cursor: pointer;
+        border-radius: 9px;
+        opacity: 0.3;
+        -webkit-tap-highlight-color: transparent;
+        transition:
+          opacity 0.2s var(--curve),
+          background-color 0.2s var(--curve);
+      }
+      .top-action:hover {
+        opacity: 0.85;
+        background: var(--hover);
+      }
+      .top-action svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .theme-toggle {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -550,9 +582,18 @@
           flex: 0 0 85vw;
           scroll-snap-align: center;
         }
-        .theme-toggle {
+        .top-actions {
           top: 14px;
           right: 16px;
+        }
+        .top-action {
+          padding: 10px;
+        }
+        .top-action svg {
+          width: 20px;
+          height: 20px;
+        }
+        .theme-toggle {
           padding: 10px;
         }
         .theme-toggle svg {
@@ -676,12 +717,27 @@
   <body>
     <div class="board no-scrollbar" id="board"></div>
 
-    <button
-      class="theme-toggle"
-      id="themeToggle"
-      aria-label="toggle theme"
-      title="toggle theme"
-    ></button>
+    <div class="top-actions" id="topActions">
+      <button
+        class="top-action"
+        id="importBtn"
+        aria-label="import board"
+        title="import board"
+      ></button>
+      <button
+        class="top-action"
+        id="exportBtn"
+        aria-label="export board"
+        title="export board"
+      ></button>
+      <button
+        class="theme-toggle"
+        id="themeToggle"
+        aria-label="toggle theme"
+        title="toggle theme"
+      ></button>
+    </div>
+    <input type="file" id="importInput" accept=".json" hidden />
 
     <div class="editor-overlay" id="overlay">
       <div class="editor-backdrop" id="backdrop"></div>
@@ -717,8 +773,14 @@
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
       const ICON_SUN =
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M17.66 17.66l1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M6.34 17.66l-1.41 1.41"/><path d="M19.07 4.93l-1.41 1.41"/></svg>';
+      const ICON_DOWNLOAD =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+      const ICON_UPLOAD =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>';
 
       document.getElementById("closeBtn").innerHTML = ICON_X_LG;
+      document.getElementById("importBtn").innerHTML = ICON_UPLOAD;
+      document.getElementById("exportBtn").innerHTML = ICON_DOWNLOAD;
 
       const COLUMNS = [
         { title: "to do", cards: [] },
@@ -787,6 +849,50 @@
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
         } catch {}
+      }
+
+      function exportBoard() {
+        syncStateFromDOM();
+        const json = JSON.stringify(state, null, 2);
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "trell0-board.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function importBoard(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const parsed = JSON.parse(e.target.result);
+            if (!Array.isArray(parsed)) throw new Error();
+            const validated = parsed.map((col, i) => ({
+              title: col.title || COLUMNS[i]?.title || "untitled",
+              cards: Array.isArray(col.cards)
+                ? col.cards.map((item) => {
+                    if (typeof item === "string")
+                      return { body: item, color: "" };
+                    return {
+                      body: item?.body || "",
+                      color: item?.color || "",
+                    };
+                  })
+                : [],
+            }));
+            if (activeCard) closeEditor();
+            state = validated;
+            saveState();
+            buildBoard();
+          } catch {
+            alert("Invalid board file.");
+          }
+        };
+        reader.readAsText(file);
+        fileInput.value = "";
       }
 
       function syncStateFromDOM() {
@@ -1224,6 +1330,16 @@
           }
         });
       }
+
+      const importBtn = document.getElementById("importBtn");
+      const exportBtn = document.getElementById("exportBtn");
+      const fileInput = document.getElementById("importInput");
+
+      importBtn.addEventListener("click", () => fileInput.click());
+      exportBtn.addEventListener("click", exportBoard);
+      fileInput.addEventListener("change", () =>
+        importBoard(fileInput.files[0]),
+      );
 
       buildBoard();
       renderColorPicker();
