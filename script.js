@@ -23,6 +23,8 @@ const ICON_TIMER =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 13V9"/><path d="M9 2h6"/><path d="m18.5 5.5 1.5-1.5"/></svg>';
 const ICON_STOPWATCH =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="14" r="7"/><path d="m12 14 3-2"/><path d="M9 2h6"/><path d="M12 2v3"/></svg>';
+const ICON_CHECK =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
 const ICON_THEME_CMD =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/></svg>';
 const ICON_PAUSE =
@@ -67,10 +69,7 @@ function getCleanText(html) {
   return doc.body.textContent || "";
 }
 function esc(c) {
-  return c
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+  return c.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 function titleFromBody(body) {
   return getCleanText(body).trim().split("\n")[0] || "untitled";
@@ -88,8 +87,7 @@ function loadState() {
       title: col.title || COLUMNS[i]?.title || "untitled",
       cards: Array.isArray(col.cards)
         ? col.cards.map((item) => {
-            if (typeof item === "string")
-              return { body: item, color: "" };
+            if (typeof item === "string") return { body: item, color: "" };
             return {
               body: item?.body || "",
               color: item?.color || "",
@@ -133,8 +131,7 @@ function importBoard(file) {
         title: col.title || COLUMNS[i]?.title || "untitled",
         cards: Array.isArray(col.cards)
           ? col.cards.map((item) => {
-              if (typeof item === "string")
-                return { body: item, color: "" };
+              if (typeof item === "string") return { body: item, color: "" };
               return {
                 body: item?.body || "",
                 color: item?.color || "",
@@ -263,9 +260,7 @@ function buildBoard() {
     const header = document.createElement("div");
     header.className = "column-header";
     header.innerHTML =
-      '<span class="title">' +
-      col.title +
-      '</span><span class="count"></span>';
+      '<span class="title">' + col.title + '</span><span class="count"></span>';
     column.appendChild(header);
 
     const cards = document.createElement("div");
@@ -302,8 +297,7 @@ function buildBoard() {
       else cards.insertBefore(dragged, after);
     });
     cards.addEventListener("dragleave", (e) => {
-      if (!cards.contains(e.relatedTarget))
-        cards.classList.remove("drag-over");
+      if (!cards.contains(e.relatedTarget)) cards.classList.remove("drag-over");
     });
     cards.addEventListener("drop", (e) => {
       e.preventDefault();
@@ -339,10 +333,7 @@ function animateAddButton(add, fromTop) {
       .trim() || "cubic-bezier(0.16, 1, 0.3, 1)";
   add.getAnimations().forEach((anim) => anim.cancel());
   add.animate(
-    [
-      { transform: `translateY(${delta}px)` },
-      { transform: "translateY(0)" },
-    ],
+    [{ transform: `translateY(${delta}px)` }, { transform: "translateY(0)" }],
     { duration: 520, easing },
   );
 }
@@ -410,11 +401,9 @@ function renderColorPicker() {
 
 function syncColorPickerState() {
   const selected = activeCard?.dataset.color || "";
-  [...cardColorPicker.querySelectorAll(".color-dot")].forEach(
-    (dot, i) => {
-      dot.classList.toggle("active", CARD_COLORS[i] === selected);
-    },
-  );
+  [...cardColorPicker.querySelectorAll(".color-dot")].forEach((dot, i) => {
+    dot.classList.toggle("active", CARD_COLORS[i] === selected);
+  });
 }
 
 function setTyping(t) {
@@ -570,29 +559,36 @@ closeBtn.addEventListener("click", (e) => {
   closeEditor();
 });
 
+const THEMES = [
+  { id: "light", label: "Light", family: "light" },
+  { id: "sunset", label: "Sunset", family: "light" },
+  { id: "solarized-light", label: "Solarized Light", family: "light" },
+  { id: "dark", label: "Dark", family: "dark" },
+  { id: "midnight", label: "Midnight", family: "dark" },
+  { id: "forest", label: "Forest", family: "dark" },
+  { id: "catppuccin", label: "Catppuccin", family: "dark" },
+  { id: "solarized-dark", label: "Solarized Dark", family: "dark" },
+];
+
 const themeToggle = document.getElementById("themeToggle");
 
-function applyTheme(theme) {
-  document.documentElement.setAttribute("data-theme", theme);
-  themeToggle.innerHTML = theme === "dark" ? ICON_SUN : ICON_MOON;
-  themeToggle.title =
-    theme === "dark" ? "switch to light" : "switch to dark";
+function applyTheme(themeId) {
+  document.documentElement.setAttribute("data-theme", themeId);
+  themeToggle.innerHTML = ICON_THEME_CMD;
+  themeToggle.title = "switch theme";
 }
 
 function currentTheme() {
-  return document.documentElement.getAttribute("data-theme") === "dark"
-    ? "dark"
-    : "light";
+  return document.documentElement.getAttribute("data-theme") || "light";
 }
 
 applyTheme(currentTheme());
 
+let themeDropdownOpen = false;
+
 themeToggle.addEventListener("click", () => {
-  const next = currentTheme() === "dark" ? "light" : "dark";
-  applyTheme(next);
-  try {
-    localStorage.setItem("trell0-theme", next);
-  } catch {}
+  if (themeDropdownOpen) closeThemeDropdown();
+  else openThemeDropdown();
 });
 
 const themeMedia =
@@ -603,7 +599,7 @@ if (themeMedia && themeMedia.addEventListener) {
     try {
       saved = localStorage.getItem("trell0-theme");
     } catch {}
-    if (saved !== "dark" && saved !== "light") {
+    if (!saved) {
       applyTheme(e.matches ? "dark" : "light");
     }
   });
@@ -615,9 +611,7 @@ const fileInput = document.getElementById("importInput");
 
 importBtn.addEventListener("click", () => fileInput.click());
 exportBtn.addEventListener("click", exportBoard);
-fileInput.addEventListener("change", () =>
-  importBoard(fileInput.files[0]),
-);
+fileInput.addEventListener("change", () => importBoard(fileInput.files[0]));
 
 const timerStack = document.getElementById("timerStack");
 const TIMERS_KEY = "trell0-timers";
@@ -631,9 +625,7 @@ let audioCtx = null;
 const chipEls = {};
 
 function elapsedOf(t) {
-  return (
-    t.accumMs + (t.running && t.startedAt ? Date.now() - t.startedAt : 0)
-  );
+  return t.accumMs + (t.running && t.startedAt ? Date.now() - t.startedAt : 0);
 }
 
 function loadTimers() {
@@ -979,8 +971,7 @@ function updateChip(t) {
     const remaining = Math.max(0, t.durationMs - elapsed);
     refs.time.textContent = formatClock(remaining, true);
     if (refs.ringProgress) {
-      const frac =
-        t.durationMs > 0 ? Math.min(1, elapsed / t.durationMs) : 1;
+      const frac = t.durationMs > 0 ? Math.min(1, elapsed / t.durationMs) : 1;
       refs.ringProgress.setAttribute(
         "stroke-dashoffset",
         String(RING_CIRC * frac),
@@ -1121,12 +1112,10 @@ function commandList() {
     },
     {
       icon: ICON_THEME_CMD,
-      label: "toggle theme",
-      keywords: "theme dark light mode toggle appearance color",
-      run: () => {
-        themeToggle.click();
-        closePalette();
-      },
+      label: "themes",
+      keywords:
+        "theme dark light mode toggle appearance color midnight sunset forest catppuccin solarized pick",
+      run: enterThemeMode,
     },
     {
       icon: ICON_DOWNLOAD,
@@ -1150,13 +1139,11 @@ function commandList() {
 }
 
 function setBackgroundInert(on) {
-  [board, document.getElementById("topActions"), timerStack].forEach(
-    (el) => {
-      if (!el) return;
-      if (on) el.setAttribute("inert", "");
-      else el.removeAttribute("inert");
-    },
-  );
+  [board, document.getElementById("topActions"), timerStack].forEach((el) => {
+    if (!el) return;
+    if (on) el.setAttribute("inert", "");
+    else el.removeAttribute("inert");
+  });
 }
 
 function openPalette() {
@@ -1197,7 +1184,9 @@ function renderLead() {
         ? "add task"
         : palMode === "pomodoro"
           ? "pomodoro"
-          : "timer";
+          : palMode === "theme"
+            ? "themes"
+            : "timer";
     paletteLead.innerHTML =
       '<span class="mode-chip" role="button" tabindex="0">' +
       label +
@@ -1223,6 +1212,7 @@ function renderBody() {
   else if (palMode === "add") renderAdd();
   else if (palMode === "timer") renderTimerMode();
   else if (palMode === "pomodoro") renderPomodoroMode();
+  else if (palMode === "theme") renderThemeMode();
   paletteFooterEl.style.display = palMode === "root" ? "" : "none";
 }
 
@@ -1248,8 +1238,7 @@ function renderRoot() {
   paletteBody.innerHTML = "";
   filtered.forEach((cmd, i) => {
     const row = document.createElement("button");
-    row.className =
-      "palette-row" + (i === palSelected ? " selected" : "");
+    row.className = "palette-row" + (i === palSelected ? " selected" : "");
     row.type = "button";
     row.style.animationDelay = i * 18 + "ms";
     row.innerHTML =
@@ -1295,8 +1284,7 @@ function renderAdd() {
   chips.className = "palette-chips";
   names.forEach((name, i) => {
     const chip = document.createElement("button");
-    chip.className =
-      "palette-chip" + (i === palAddColumn ? " active" : "");
+    chip.className = "palette-chip" + (i === palAddColumn ? " active" : "");
     chip.type = "button";
     chip.innerHTML = '<span class="chip-dot"></span>' + name;
     chip.addEventListener("click", () => {
@@ -1410,8 +1398,7 @@ function flashTimerError() {
   if (palHintTimeout) clearTimeout(palHintTimeout);
   palHintTimeout = setTimeout(() => {
     hint.classList.remove("flash");
-    hint.textContent =
-      "pick a preset · or type a duration and press enter";
+    hint.textContent = "pick a preset · or type a duration and press enter";
   }, 1600);
 }
 
@@ -1489,6 +1476,132 @@ function flashPomodoroError() {
   }, 1600);
 }
 
+function enterThemeMode() {
+  palMode = "theme";
+  palSelected = 0;
+  paletteInput.value = "";
+  renderLead();
+  setPlaceholder();
+  renderBody();
+  requestAnimationFrame(() => paletteInput.focus());
+}
+
+function renderThemeMode() {
+  const q = paletteInput.value.trim().toLowerCase();
+  const current = currentTheme();
+  const filtered = q
+    ? THEMES.filter((t) => t.label.toLowerCase().includes(q))
+    : THEMES;
+  palRows = filtered;
+  if (palSelected >= filtered.length) palSelected = 0;
+
+  paletteBody.innerHTML = "";
+  if (filtered.length === 0) {
+    paletteBody.innerHTML =
+      '<div class="palette-empty">no matching themes</div>';
+    return;
+  }
+
+  filtered.forEach((t, i) => {
+    const row = document.createElement("button");
+    row.className = "palette-row" + (i === palSelected ? " selected" : "");
+    row.type = "button";
+    row.style.animationDelay = i * 18 + "ms";
+    row.innerHTML =
+      '<span class="row-icon">' +
+      (t.id === current ? ICON_CHECK : "") +
+      '</span><span class="row-label">' +
+      t.label +
+      "</span>";
+    row.addEventListener("click", () => {
+      submitThemeById(t.id);
+    });
+    row.addEventListener("mousemove", () => setSelected(i));
+    paletteBody.appendChild(row);
+  });
+}
+
+function submitTheme() {
+  const cmd = palRows[palSelected];
+  if (!cmd) return;
+  submitThemeById(cmd.id);
+}
+
+function submitThemeById(id) {
+  applyTheme(id);
+  try {
+    localStorage.setItem("trell0-theme", id);
+  } catch {}
+  closePalette();
+}
+
+function renderThemeDropdown() {
+  let dropdown = document.getElementById("themeDropdown");
+  if (!dropdown) {
+    dropdown = document.createElement("div");
+    dropdown.id = "themeDropdown";
+    dropdown.className = "theme-dropdown";
+    dropdown.role = "listbox";
+    document.body.appendChild(dropdown);
+  }
+  const current = currentTheme();
+  dropdown.innerHTML = "";
+  THEMES.forEach((t) => {
+    const item = document.createElement("button");
+    item.className =
+      "theme-dropdown-item" + (t.id === current ? " selected" : "");
+    item.type = "button";
+    item.innerHTML =
+      '<span class="row-icon">' +
+      (t.id === current ? ICON_CHECK : "") +
+      '</span><span class="row-label">' +
+      t.label +
+      "</span>";
+    item.addEventListener("click", (e) => {
+      e.stopPropagation();
+      submitThemeById(t.id);
+      closeThemeDropdown();
+    });
+    dropdown.appendChild(item);
+  });
+}
+
+function openThemeDropdown() {
+  if (themeDropdownOpen) return;
+  renderThemeDropdown();
+  const dropdown = document.getElementById("themeDropdown");
+  const rect = themeToggle.getBoundingClientRect();
+  dropdown.style.position = "fixed";
+  dropdown.style.top = rect.bottom + 6 + "px";
+  dropdown.style.right = window.innerWidth - rect.right + "px";
+  requestAnimationFrame(() => dropdown.classList.add("open"));
+  themeDropdownOpen = true;
+  document.addEventListener("keydown", themeDropdownKeyHandler);
+  setTimeout(() => {
+    document.addEventListener("click", themeDropdownOutsideHandler);
+  }, 0);
+}
+
+function closeThemeDropdown() {
+  const dropdown = document.getElementById("themeDropdown");
+  if (!dropdown) return;
+  dropdown.classList.remove("open");
+  themeDropdownOpen = false;
+  document.removeEventListener("keydown", themeDropdownKeyHandler);
+  document.removeEventListener("click", themeDropdownOutsideHandler);
+}
+
+function themeDropdownKeyHandler(e) {
+  if (e.key === "Escape") closeThemeDropdown();
+}
+
+function themeDropdownOutsideHandler(e) {
+  const dropdown = document.getElementById("themeDropdown");
+  if (!dropdown || !themeDropdownOpen) return;
+  if (dropdown.contains(e.target) || themeToggle.contains(e.target)) return;
+  closeThemeDropdown();
+}
+
 function parseDuration(str) {
   if (!str) return null;
   str = str.trim().toLowerCase();
@@ -1557,6 +1670,9 @@ paletteInput.addEventListener("input", () => {
   if (palMode === "root") {
     palSelected = 0;
     renderRoot();
+  } else if (palMode === "theme") {
+    palSelected = 0;
+    renderThemeMode();
   }
 });
 
@@ -1567,6 +1683,7 @@ paletteInput.addEventListener("keydown", (e) => {
     else if (palMode === "add") submitAdd();
     else if (palMode === "timer") submitTimer();
     else if (palMode === "pomodoro") submitPomodoro();
+    else if (palMode === "theme") submitTheme();
   } else if (
     e.key === "Backspace" &&
     paletteInput.value === "" &&
@@ -1583,7 +1700,7 @@ paletteOverlay.addEventListener("keydown", (e) => {
     closePalette();
     return;
   }
-  if (palMode === "root") {
+  if (palMode === "root" || palMode === "theme") {
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setSelected(Math.min(palSelected + 1, palRows.length - 1));

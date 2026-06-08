@@ -22,6 +22,54 @@
         --hover: rgba(255, 255, 255, 0.05);
         color-scheme: dark;
       }
+      :root[data-theme="midnight"] {
+        --color-paper: #0b0e1a;
+        --color-ink: #b8c5e0;
+        --bg: var(--color-paper);
+        --fg: var(--color-ink);
+        --hover: rgba(255, 255, 255, 0.04);
+        color-scheme: dark;
+      }
+      :root[data-theme="forest"] {
+        --color-paper: #0d1610;
+        --color-ink: #b8d0b8;
+        --bg: var(--color-paper);
+        --fg: var(--color-ink);
+        --hover: rgba(255, 255, 255, 0.04);
+        color-scheme: dark;
+      }
+      :root[data-theme="sunset"] {
+        --color-paper: #fdf3ea;
+        --color-ink: #3d2c24;
+        --bg: var(--color-paper);
+        --fg: var(--color-ink);
+        --hover: rgba(0, 0, 0, 0.035);
+        color-scheme: light;
+      }
+      :root[data-theme="solarized-light"] {
+        --color-paper: #fdf6e3;
+        --color-ink: #657b83;
+        --bg: var(--color-paper);
+        --fg: var(--color-ink);
+        --hover: rgba(0, 0, 0, 0.04);
+        color-scheme: light;
+      }
+      :root[data-theme="catppuccin"] {
+        --color-paper: #24273a;
+        --color-ink: #cad3f5;
+        --bg: var(--color-paper);
+        --fg: var(--color-ink);
+        --hover: rgba(255, 255, 255, 0.04);
+        color-scheme: dark;
+      }
+      :root[data-theme="solarized-dark"] {
+        --color-paper: #002b36;
+        --color-ink: #839496;
+        --bg: var(--color-paper);
+        --fg: var(--color-ink);
+        --hover: rgba(255, 255, 255, 0.05);
+        color-scheme: dark;
+      }
       * {
         box-sizing: border-box;
       }
@@ -163,19 +211,75 @@
           height: 20px;
         }
       }
+      .theme-dropdown {
+        position: fixed;
+        z-index: 300;
+        min-width: 170px;
+        background: var(--sidebar, var(--bg));
+        border: 1px solid var(--line, rgba(0, 0, 0, 0.06));
+        border-radius: 12px;
+        box-shadow: 0 16px 48px -12px rgba(0, 0, 0, 0.4);
+        padding: 6px;
+        opacity: 0;
+        transform: scale(0.96) translateY(-4px);
+        pointer-events: none;
+        transition:
+          opacity 0.15s var(--curve, ease),
+          transform 0.2s var(--curve, ease);
+      }
+      .theme-dropdown.open {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        pointer-events: auto;
+      }
+      .theme-dropdown-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 8px 10px;
+        border: none;
+        background: none;
+        color: var(--fg);
+        font-family: inherit;
+        font-size: 13.5px;
+        text-align: left;
+        cursor: pointer;
+        border-radius: 8px;
+        transition: background-color 0.12s var(--curve, ease);
+      }
+      .theme-dropdown-item:hover {
+        background: var(--hover);
+      }
+      .theme-dropdown-item .row-icon {
+        width: 18px;
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.5;
+      }
+      .theme-dropdown-item .row-icon svg {
+        width: 15px;
+        height: 15px;
+      }
+      .theme-dropdown-item .row-label {
+        flex: 1;
+        opacity: 0.8;
+      }
     </style>
     <script>
       (function () {
         try {
           var saved = localStorage.getItem("trell0-theme");
-          var theme =
-            saved === "dark" || saved === "light"
-              ? saved
-              : window.matchMedia &&
-                  window.matchMedia("(prefers-color-scheme: dark)").matches
-                ? "dark"
-                : "light";
-          document.documentElement.setAttribute("data-theme", theme);
+          if (saved) {
+            document.documentElement.setAttribute("data-theme", saved);
+          } else if (
+            window.matchMedia &&
+            window.matchMedia("(prefers-color-scheme: dark)").matches
+          ) {
+            document.documentElement.setAttribute("data-theme", "dark");
+          }
         } catch (e) {}
       })();
     </script>
@@ -207,30 +311,118 @@
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
       var ICON_SUN =
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M17.66 17.66l1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M6.34 17.66l-1.41 1.41"/><path d="M19.07 4.93l-1.41 1.41"/></svg>';
+      var ICON_CHECK =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+      var ICON_THEME_CMD =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/></svg>';
+
+      var THEMES = [
+        { id: "light", label: "Light", family: "light" },
+        { id: "sunset", label: "Sunset", family: "light" },
+        { id: "solarized-light", label: "Solarized Light", family: "light" },
+        { id: "dark", label: "Dark", family: "dark" },
+        { id: "midnight", label: "Midnight", family: "dark" },
+        { id: "forest", label: "Forest", family: "dark" },
+        { id: "catppuccin", label: "Catppuccin", family: "dark" },
+        { id: "solarized-dark", label: "Solarized Dark", family: "dark" },
+      ];
 
       var themeToggle = document.getElementById("themeToggle");
 
-      function applyTheme(theme) {
-        document.documentElement.setAttribute("data-theme", theme);
-        themeToggle.innerHTML = theme === "dark" ? ICON_SUN : ICON_MOON;
-        themeToggle.title =
-          theme === "dark " ? "switch to light" : "switch to dark";
+      function applyTheme(themeId) {
+        document.documentElement.setAttribute("data-theme", themeId);
+        themeToggle.innerHTML = ICON_THEME_CMD;
+        themeToggle.title = "switch theme";
       }
 
       function currentTheme() {
-        return document.documentElement.getAttribute("data-theme") === "dark"
-          ? "dark"
-          : "light";
+        return document.documentElement.getAttribute("data-theme") || "light";
+      }
+
+      function submitThemeById(id) {
+        applyTheme(id);
+        try {
+          localStorage.setItem("trell0-theme", id);
+        } catch (e) {}
       }
 
       applyTheme(currentTheme());
 
+      var themeDropdownOpen = false;
+
+      function renderThemeDropdown() {
+        var dropdown = document.getElementById("themeDropdown");
+        if (!dropdown) {
+          dropdown = document.createElement("div");
+          dropdown.id = "themeDropdown";
+          dropdown.className = "theme-dropdown";
+          dropdown.role = "listbox";
+          document.body.appendChild(dropdown);
+        }
+        var current = currentTheme();
+        dropdown.innerHTML = "";
+        THEMES.forEach(function (t) {
+          var item = document.createElement("button");
+          item.className =
+            "theme-dropdown-item" + (t.id === current ? " selected" : "");
+          item.type = "button";
+          item.innerHTML =
+            '<span class="row-icon">' +
+            (t.id === current ? ICON_CHECK : "") +
+            '</span><span class="row-label">' +
+            t.label +
+            "</span>";
+          item.addEventListener("click", function (e) {
+            e.stopPropagation();
+            submitThemeById(t.id);
+            closeThemeDropdown();
+          });
+          dropdown.appendChild(item);
+        });
+      }
+
+      function openThemeDropdown() {
+        if (themeDropdownOpen) return;
+        renderThemeDropdown();
+        var dropdown = document.getElementById("themeDropdown");
+        var rect = themeToggle.getBoundingClientRect();
+        dropdown.style.position = "fixed";
+        dropdown.style.top = rect.bottom + 6 + "px";
+        dropdown.style.right = window.innerWidth - rect.right + "px";
+        requestAnimationFrame(function () {
+          dropdown.classList.add("open");
+        });
+        themeDropdownOpen = true;
+        document.addEventListener("keydown", themeDropdownKeyHandler);
+        setTimeout(function () {
+          document.addEventListener("click", themeDropdownOutsideHandler);
+        }, 0);
+      }
+
+      function closeThemeDropdown() {
+        var dropdown = document.getElementById("themeDropdown");
+        if (!dropdown) return;
+        dropdown.classList.remove("open");
+        themeDropdownOpen = false;
+        document.removeEventListener("keydown", themeDropdownKeyHandler);
+        document.removeEventListener("click", themeDropdownOutsideHandler);
+      }
+
+      function themeDropdownKeyHandler(e) {
+        if (e.key === "Escape") closeThemeDropdown();
+      }
+
+      function themeDropdownOutsideHandler(e) {
+        var dropdown = document.getElementById("themeDropdown");
+        if (!dropdown || !themeDropdownOpen) return;
+        if (dropdown.contains(e.target) || themeToggle.contains(e.target))
+          return;
+        closeThemeDropdown();
+      }
+
       themeToggle.addEventListener("click", function () {
-        var next = currentTheme() === "dark" ? "light" : "dark";
-        applyTheme(next);
-        try {
-          localStorage.setItem("trell0-theme", next);
-        } catch (e) {}
+        if (themeDropdownOpen) closeThemeDropdown();
+        else openThemeDropdown();
       });
     </script>
   </body>

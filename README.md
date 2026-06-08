@@ -17,15 +17,8 @@ every trello board on the market is sluggish and built for corporate teams. i wa
 - localStorage auto-save
 - dark mode
 - import/export (json)
+- landing page
 
 ## planned features
 
-- keyboard shortcuts
-- drag-select and multi-node actions
-- undo/redo history
-- tags and filters
-- due dates
-- markdown support in node content
-- realtime collaboration
-- mobile responsive layout
-- landing page
+- custom themes
