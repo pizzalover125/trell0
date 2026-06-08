@@ -18,7 +18,6 @@ every trello board on the market is sluggish and built for corporate teams. i wa
 - dark mode
 - import/export (json)
 - landing page
+- custom themes
 
 ## planned features
-
-- custom themes
