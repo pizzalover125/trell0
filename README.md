@@ -28,3 +28,4 @@ every trello board on the market is sluggish and built for corporate teams. i wa
 - markdown support in node content
 - realtime collaboration
 - mobile responsive layout
+- landing page
