@@ -87,10 +87,12 @@ function loadState() {
       title: col.title || COLUMNS[i]?.title || "untitled",
       cards: Array.isArray(col.cards)
         ? col.cards.map((item) => {
-            if (typeof item === "string") return { body: item, color: "" };
+            if (typeof item === "string")
+              return { body: item, color: "", tags: [] };
             return {
               body: item?.body || "",
               color: item?.color || "",
+              tags: Array.isArray(item?.tags) ? item.tags : [],
             };
           })
         : [],
@@ -131,10 +133,12 @@ function importBoard(file) {
         title: col.title || COLUMNS[i]?.title || "untitled",
         cards: Array.isArray(col.cards)
           ? col.cards.map((item) => {
-              if (typeof item === "string") return { body: item, color: "" };
+              if (typeof item === "string")
+                return { body: item, color: "", tags: [] };
               return {
                 body: item?.body || "",
                 color: item?.color || "",
+                tags: Array.isArray(item?.tags) ? item.tags : [],
               };
             })
           : [],
@@ -158,6 +162,7 @@ function syncStateFromDOM() {
       (card) => ({
         body: card.dataset.body || "",
         color: card.dataset.color || "",
+        tags: JSON.parse(card.dataset.tags || "[]"),
       }),
     ),
   }));
@@ -166,12 +171,19 @@ function syncStateFromDOM() {
 function makeCard(input) {
   const body = typeof input === "string" ? input : input?.body || "";
   const color = typeof input === "string" ? "" : input?.color || "";
+  const tags =
+    typeof input === "string"
+      ? []
+      : Array.isArray(input?.tags)
+        ? input.tags
+        : [];
   const card = document.createElement("div");
   card.className = "card card-enter";
   card.draggable = true;
   card.dataset.id = "c" + uid++;
   card.dataset.body = body || "";
   card.dataset.color = color;
+  card.dataset.tags = JSON.stringify(tags);
 
   const title = document.createElement("span");
   title.className = "card-title";
@@ -242,6 +254,19 @@ function refreshCard(card) {
   const clean = titleFromBody(body);
   card.querySelector(".card-title").textContent = clean;
   card.classList.toggle("empty", !getCleanText(body).trim());
+
+  let tagsContainer = card.querySelector(".card-tags");
+  if (!tagsContainer) {
+    tagsContainer = document.createElement("div");
+    tagsContainer.className = "card-tags";
+    card.insertBefore(tagsContainer, card.querySelector(".card-title"));
+  }
+  const tags = JSON.parse(card.dataset.tags || "[]");
+  tagsContainer.innerHTML = tags
+    .map((t) => `<span class="tag-chip">${esc(t)}</span>`)
+    .join("");
+  tagsContainer.style.display = tags.length ? "flex" : "none";
+
   if (card.dataset.color) {
     card.style.setProperty("--card-bg", card.dataset.color);
     card.style.setProperty("--card-fg", "#1a1a1a");
@@ -274,10 +299,10 @@ function buildBoard() {
     add.innerHTML = ICON_PLUS + "<span>add card</span>";
     add.addEventListener("click", () => {
       const addTop = add.getBoundingClientRect().top;
-      const c = makeCard({ body: "", color: "" });
+      const c = makeCard({ body: "", color: "", tags: [] });
       cards.appendChild(c);
 
-      state[colIndex].cards.push({ body: "", color: "" });
+      state[colIndex].cards.push({ body: "", color: "", tags: [] });
       updateCounts();
       saveState();
       animateAddButton(add, addTop);
@@ -353,10 +378,10 @@ function addCardToColumn(colIndex, body) {
   const add = column.querySelector(".add-card");
   const addTop = add.getBoundingClientRect().top;
 
-  const c = makeCard({ body: body || "", color: "" });
+  const c = makeCard({ body: body || "", color: "", tags: [] });
   cards.appendChild(c);
 
-  state[colIndex].cards.push({ body: body || "", color: "" });
+  state[colIndex].cards.push({ body: body || "", color: "", tags: [] });
   updateCounts();
   saveState();
   animateAddButton(add, addTop);
@@ -373,11 +398,94 @@ const cursorEl = document.getElementById("cursor");
 const statusBar = document.getElementById("status");
 const closeBtn = document.getElementById("closeBtn");
 const cardColorPicker = document.getElementById("cardColorPicker");
+const editorTagsArea = document.getElementById("editorTagsArea");
 
 let activeCard = null;
 let isTyping = false;
 let syncTimeout = null;
 let typingTimeout = null;
+
+function renderEditorTags(card) {
+  if (!editorTagsArea) return;
+  const tags = JSON.parse(card.dataset.tags || "[]");
+  editorTagsArea.innerHTML = "";
+
+  tags.forEach((tag) => {
+    const chip = document.createElement("span");
+    chip.className = "editor-tag-chip";
+    chip.innerHTML = `${esc(tag)}<span class="editor-tag-x" title="remove">${ICON_X_TINY}</span>`;
+    chip.querySelector(".editor-tag-x").addEventListener("click", (e) => {
+      e.stopPropagation();
+      removeTag(card, tag);
+    });
+    editorTagsArea.appendChild(chip);
+  });
+
+  const addBtn = document.createElement("button");
+  addBtn.className = "add-tag-trigger";
+  addBtn.innerHTML = ICON_PLUS;
+  addBtn.title = "add tag";
+
+  const inputWrap = document.createElement("div");
+  inputWrap.className = "tag-input-box";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "tag-input-field";
+  input.placeholder = "tag...";
+  inputWrap.appendChild(input);
+
+  addBtn.addEventListener("click", () => {
+    inputWrap.classList.add("open");
+    addBtn.style.display = "none";
+    input.focus();
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const val = input.value.trim().toLowerCase();
+      if (val) addTag(card, val);
+      input.value = "";
+      inputWrap.classList.remove("open");
+      addBtn.style.display = "flex";
+    }
+    if (e.key === "Escape") {
+      inputWrap.classList.remove("open");
+      addBtn.style.display = "flex";
+    }
+  });
+
+  input.addEventListener("blur", () => {
+    if (!input.value.trim()) {
+      inputWrap.classList.remove("open");
+      addBtn.style.display = "flex";
+    }
+  });
+
+  editorTagsArea.appendChild(addBtn);
+  editorTagsArea.appendChild(inputWrap);
+}
+
+function addTag(card, tag) {
+  const tags = JSON.parse(card.dataset.tags || "[]");
+  if (tags.includes(tag)) return;
+  tags.push(tag);
+  card.dataset.tags = JSON.stringify(tags);
+  refreshCard(card);
+  renderEditorTags(card);
+  syncStateFromDOM();
+  saveState();
+}
+
+function removeTag(card, tag) {
+  let tags = JSON.parse(card.dataset.tags || "[]");
+  tags = tags.filter((t) => t !== tag);
+  card.dataset.tags = JSON.stringify(tags);
+  refreshCard(card);
+  renderEditorTags(card);
+  syncStateFromDOM();
+  saveState();
+}
 
 function renderColorPicker() {
   cardColorPicker.innerHTML = "";
@@ -527,6 +635,7 @@ function openEditor(card) {
   setTyping(false);
   updateWordCount();
   syncColorPickerState();
+  renderEditorTags(card);
 
   overlay.classList.add("open");
   requestAnimationFrame(() => {
