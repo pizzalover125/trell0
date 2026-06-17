@@ -263,11 +263,12 @@ body {
   height: 100%;
   width: 100%;
   display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
   gap: 22px;
-  align-items: flex-start;
   padding: 56px 40px 40px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .column {
@@ -296,6 +297,48 @@ body {
   font-weight: 400;
   opacity: 0.25;
   letter-spacing: -0.01em;
+}
+
+.column-header .title {
+  flex: 1;
+  min-width: 0;
+}
+.column-header .title[contenteditable="true"] {
+  outline: none;
+  background: var(--hover);
+  padding: 2px 6px;
+  border-radius: 6px;
+  opacity: 1;
+}
+
+.column-x {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  line-height: 0;
+  border: none;
+  background: none;
+  color: var(--fg);
+  cursor: pointer;
+  border-radius: 6px;
+  opacity: 0;
+  flex: 0 0 auto;
+  transition: opacity 0.2s var(--curve);
+}
+.column-header:hover .column-x {
+  opacity: 0.3;
+}
+.column-x:hover {
+  opacity: 1 !important;
+}
+.column-x svg {
+  width: 14px;
+  height: 14px;
+}
+
+.column.dragging {
+  opacity: 0.35;
 }
 
 .card-tags {
@@ -455,6 +498,39 @@ body {
 .add-card:hover {
   opacity: 0.9;
   background: var(--hover);
+}
+
+.add-column {
+  flex: 0 0 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 140px;
+  border: 1.5px dashed var(--line);
+  border-radius: 18px;
+  background: none;
+  color: var(--fg);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  text-transform: lowercase;
+  opacity: 0.3;
+  transition:
+    opacity 0.25s var(--curve),
+    background-color 0.25s var(--curve);
+  -webkit-tap-highlight-color: transparent;
+}
+.add-column:hover {
+  opacity: 0.7;
+  background: var(--hover);
+}
+.add-column svg {
+  width: 24px;
+  height: 24px;
 }
 
 .icon {
@@ -1256,12 +1332,14 @@ body {
   .board {
     gap: 14px;
     padding: 44px 16px 24px;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
   }
   .column {
-    flex: 0 0 85vw;
-    scroll-snap-align: center;
+    flex: 0 0 calc(50% - 18px);
+    min-width: 240px;
+  }
+  .add-column {
+    flex: 0 0 calc(50% - 18px);
+    min-width: 240px;
   }
   .top-actions {
     top: 14px;
@@ -1296,6 +1374,9 @@ body {
     width: 16px;
     height: 16px;
   }
+  .column-x {
+    opacity: 0.35;
+  }
   .add-card {
     padding: 14px 16px 14px 8px;
     font-size: 15px;
@@ -1305,6 +1386,7 @@ body {
     width: 20px;
     height: 20px;
   }
+
   .editor-overlay {
     padding: 12px;
     align-items: flex-end;
@@ -1380,6 +1462,9 @@ body {
   .column-header {
     padding: 6px 4px 10px;
   }
+  .add-column {
+    flex: 0 0 88vw;
+  }
   .editor-modal {
     padding: 16px 12px 12px;
   }
@@ -1391,6 +1476,9 @@ body {
     gap: 18px;
   }
   .column {
+    flex: 0 0 280px;
+  }
+  .add-column {
     flex: 0 0 280px;
   }
 }

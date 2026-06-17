@@ -281,12 +281,67 @@ function buildBoard() {
   state.forEach((col, colIndex) => {
     const column = document.createElement("div");
     column.className = "column";
+    column.draggable = true;
 
     const header = document.createElement("div");
     header.className = "column-header";
-    header.innerHTML =
-      '<span class="title">' + col.title + '</span><span class="count"></span>';
+
+    const title = document.createElement("span");
+    title.className = "title";
+    title.textContent = col.title;
+    header.appendChild(title);
+
+    const count = document.createElement("span");
+    count.className = "count";
+    header.appendChild(count);
+
+    const del = document.createElement("button");
+    del.className = "column-x";
+    del.innerHTML = ICON_X;
+    del.title = "delete column";
+    header.appendChild(del);
+
     column.appendChild(header);
+
+    title.addEventListener("click", (e) => {
+      e.stopPropagation();
+      title.contentEditable = "true";
+      title.classList.add("editing");
+      title.focus();
+      const range = document.createRange();
+      range.selectNodeContents(title);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    });
+    title.addEventListener("blur", () => {
+      title.contentEditable = "false";
+      title.classList.remove("editing");
+      const newTitle = title.textContent.trim() || "untitled";
+      title.textContent = newTitle;
+      state[colIndex].title = newTitle;
+      saveState();
+    });
+    title.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        title.blur();
+      }
+    });
+
+    del.addEventListener("click", (e) => {
+      e.stopPropagation();
+      deleteColumn(colIndex);
+    });
+
+    column.addEventListener("dragstart", () => {
+      colDragged = column;
+      column.classList.add("dragging");
+    });
+    column.addEventListener("dragend", () => {
+      column.classList.remove("dragging");
+      colDragged = null;
+    });
 
     const cards = document.createElement("div");
     cards.className = "cards no-scrollbar";
@@ -334,6 +389,35 @@ function buildBoard() {
 
     board.appendChild(column);
   });
+
+  const addColBtn = document.createElement("button");
+  addColBtn.className = "add-column";
+  addColBtn.innerHTML = ICON_PLUS + "<span>new column</span>";
+  addColBtn.addEventListener("click", () => addColumn("new"));
+  board.appendChild(addColBtn);
+
+  board.addEventListener("dragover", (e) => {
+    if (!colDragged) return;
+    e.preventDefault();
+    const addBtn = board.querySelector(".add-column");
+    const after = afterColumn(board, e.clientX);
+    if (after == null) {
+      if (addBtn) board.insertBefore(colDragged, addBtn);
+      else board.appendChild(colDragged);
+    } else {
+      board.insertBefore(colDragged, after);
+    }
+  });
+  board.addEventListener("drop", (e) => {
+    if (!colDragged) return;
+    e.preventDefault();
+    const addBtn = board.querySelector(".add-column");
+    if (addBtn) board.appendChild(addBtn);
+    syncStateFromDOM();
+    updateCounts();
+    saveState();
+  });
+
   updateCounts();
 }
 
@@ -343,6 +427,17 @@ function afterElement(container, y) {
   for (const el of els) {
     const box = el.getBoundingClientRect();
     const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) closest = { offset, el };
+  }
+  return closest.el;
+}
+
+function afterColumn(container, x) {
+  const els = [...container.querySelectorAll(".column:not(.dragging)")];
+  let closest = { offset: -Infinity, el: null };
+  for (const el of els) {
+    const box = el.getBoundingClientRect();
+    const offset = x - box.left - box.width / 2;
     if (offset < 0 && offset > closest.offset) closest = { offset, el };
   }
   return closest.el;
@@ -389,7 +484,22 @@ function addCardToColumn(colIndex, body) {
   setTimeout(() => c.classList.remove("card-enter"), 520);
 }
 
+function addColumn(title) {
+  state.push({ title: title || "new", cards: [] });
+  saveState();
+  buildBoard();
+}
+
+function deleteColumn(colIndex) {
+  const name = state[colIndex]?.title || "column";
+  if (!confirm(`Delete "${name}" column and all its cards?`)) return;
+  state.splice(colIndex, 1);
+  saveState();
+  buildBoard();
+}
+
 let dragged = null;
+let colDragged = null;
 
 const overlay = document.getElementById("overlay");
 const backdrop = document.getElementById("backdrop");
@@ -1192,6 +1302,15 @@ function columnNames() {
 
 function commandList() {
   return [
+    {
+      icon: ICON_PLUS_SM,
+      label: "add column",
+      keywords: "add column new list create column",
+      run: () => {
+        addColumn("new");
+        closePalette();
+      },
+    },
     {
       icon: ICON_PLUS_SM,
       label: "add a task",
