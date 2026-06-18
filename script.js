@@ -500,6 +500,120 @@ function deleteColumn(colIndex) {
 
 let dragged = null;
 let colDragged = null;
+let touchDragged = null;
+let touchColDragged = null;
+let touchStartPos = null;
+let touchStartTarget = null;
+
+board.addEventListener(
+  "touchstart",
+  (e) => {
+    touchStartPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    touchStartTarget = e.target;
+  },
+  { passive: true },
+);
+
+document.addEventListener(
+  "touchmove",
+  (e) => {
+    if (!touchStartPos) return;
+    const touch = e.touches[0];
+    const dx = Math.abs(touch.clientX - touchStartPos.x);
+    const dy = Math.abs(touch.clientY - touchStartPos.y);
+    if (dx < 10 && dy < 10) return;
+
+    if (!touchDragged && !touchColDragged) {
+      const card = touchStartTarget.closest(".card");
+      const col = touchStartTarget.closest(".column");
+      if (card && !touchStartTarget.closest(".card-x")) {
+        touchDragged = card;
+        card.classList.add("dragging");
+      } else if (
+        col &&
+        touchStartTarget.closest(".column-header") &&
+        !touchStartTarget.closest(".column-x") &&
+        !touchStartTarget.closest(".title")
+      ) {
+        touchColDragged = col;
+        col.classList.add("dragging");
+      } else {
+        return;
+      }
+    }
+
+    e.preventDefault();
+
+    if (touchDragged) {
+      touchDragged.style.pointerEvents = "none";
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      touchDragged.style.pointerEvents = "";
+      if (!el) return;
+      const cards = el.closest(".cards");
+      if (!cards) return;
+      cards.classList.add("drag-over");
+      const after = afterElement(cards, touch.clientY);
+      if (after == null) cards.appendChild(touchDragged);
+      else cards.insertBefore(touchDragged, after);
+    }
+
+    if (touchColDragged) {
+      touchColDragged.style.pointerEvents = "none";
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      touchColDragged.style.pointerEvents = "";
+      if (!el) return;
+      const addBtn = board.querySelector(".add-column");
+      const after = afterColumn(board, touch.clientX);
+      if (after == null) {
+        if (addBtn) board.insertBefore(touchColDragged, addBtn);
+        else board.appendChild(touchColDragged);
+      } else {
+        board.insertBefore(touchColDragged, after);
+      }
+    }
+  },
+  { passive: false },
+);
+
+document.addEventListener("touchend", () => {
+  if (touchDragged) {
+    touchDragged.classList.remove("dragging");
+    document
+      .querySelectorAll(".cards.drag-over")
+      .forEach((c) => c.classList.remove("drag-over"));
+    syncStateFromDOM();
+    updateCounts();
+    saveState();
+    touchDragged = null;
+  }
+  if (touchColDragged) {
+    touchColDragged.classList.remove("dragging");
+    const addBtn = board.querySelector(".add-column");
+    if (addBtn) board.appendChild(addBtn);
+    syncStateFromDOM();
+    updateCounts();
+    saveState();
+    touchColDragged = null;
+  }
+  touchStartPos = null;
+  touchStartTarget = null;
+});
+
+document.addEventListener("touchcancel", () => {
+  if (touchDragged) {
+    touchDragged.classList.remove("dragging");
+    touchDragged = null;
+  }
+  if (touchColDragged) {
+    touchColDragged.classList.remove("dragging");
+    touchColDragged = null;
+  }
+  document
+    .querySelectorAll(".cards.drag-over")
+    .forEach((c) => c.classList.remove("drag-over"));
+  touchStartPos = null;
+  touchStartTarget = null;
+});
 
 const overlay = document.getElementById("overlay");
 const backdrop = document.getElementById("backdrop");
@@ -790,6 +904,7 @@ const THEMES = [
 ];
 
 const themeToggle = document.getElementById("themeToggle");
+
 
 function applyTheme(themeId) {
   document.documentElement.setAttribute("data-theme", themeId);

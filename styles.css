@@ -1330,16 +1330,27 @@ body {
 
 @media (max-width: 640px) {
   .board {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
     gap: 14px;
     padding: 44px 16px 24px;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
   }
   .column {
-    flex: 0 0 calc(50% - 18px);
-    min-width: 240px;
+    flex: 0 0 80vw;
+    max-width: 320px;
+    height: 100%;
+    scroll-snap-align: start;
+  }
+  .cards {
+    flex: 1;
   }
   .add-column {
-    flex: 0 0 calc(50% - 18px);
-    min-width: 240px;
+    flex: 0 0 80vw;
+    max-width: 320px;
+    scroll-snap-align: start;
   }
   .top-actions {
     top: 14px;
@@ -1457,13 +1468,15 @@ body {
     gap: 12px;
   }
   .column {
-    flex: 0 0 88vw;
+    flex: 0 0 92vw;
+    min-width: 0;
   }
   .column-header {
     padding: 6px 4px 10px;
   }
   .add-column {
-    flex: 0 0 88vw;
+    flex: 0 0 92vw;
+    min-width: 0;
   }
   .editor-modal {
     padding: 16px 12px 12px;
