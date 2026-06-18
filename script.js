@@ -905,11 +905,37 @@ const THEMES = [
 
 const themeToggle = document.getElementById("themeToggle");
 
+function updateFavicon() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 32;
+  canvas.height = 32;
+  const ctx = canvas.getContext("2d");
+
+  const style = getComputedStyle(document.documentElement);
+  const color1 = style.getPropertyValue("--color-paper").trim() || "#f9f9f9";
+  const color2 = style.getPropertyValue("--color-ink").trim() || "#1a1a1a";
+
+  const gradient = ctx.createLinearGradient(0, 0, 32, 32);
+  gradient.addColorStop(0, color1);
+  gradient.addColorStop(1, color2);
+
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 32, 32);
+
+  let link = document.querySelector('link[rel~="icon"]');
+  if (!link) {
+    link = document.createElement("link");
+    link.rel = "icon";
+    document.head.appendChild(link);
+  }
+  link.href = canvas.toDataURL();
+}
 
 function applyTheme(themeId) {
   document.documentElement.setAttribute("data-theme", themeId);
   themeToggle.innerHTML = ICON_THEME_CMD;
   themeToggle.title = "switch theme";
+  updateFavicon();
 }
 
 function currentTheme() {
