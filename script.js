@@ -35,6 +35,11 @@ const ICON_RESTART =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.36"/><path d="M3 4v4h4"/></svg>';
 const ICON_X_TINY =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>';
+const ICON_UNDO =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/></svg>';
+const ICON_REDO =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5 5.5 5.5 0 0 0 9.5 20H13"/></svg>';
+
 const ICON_POMODORO =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7"/><path d="M12 9v4l2.5 1.5"/><path d="M9 2h6"/><path d="M12 2v2.5"/></svg>';
 
@@ -104,6 +109,44 @@ function loadState() {
 
 let state = loadState();
 
+const MAX_HISTORY = 50;
+let undoStack = [];
+let redoStack = [];
+
+function pushSnapshot() {
+  undoStack.push(JSON.parse(JSON.stringify(state)));
+  if (undoStack.length > MAX_HISTORY) undoStack.shift();
+  redoStack = [];
+}
+
+function undo() {
+  if (undoStack.length === 0) return;
+  redoStack.push(JSON.parse(JSON.stringify(state)));
+  state = undoStack.pop();
+  saveState();
+  if (activeCard) {
+    activeCard = null;
+    overlay.classList.remove("open");
+  }
+  closePalette();
+  buildBoard();
+}
+
+function redo() {
+  if (redoStack.length === 0) return;
+  undoStack.push(JSON.parse(JSON.stringify(state)));
+  state = redoStack.pop();
+  saveState();
+  if (activeCard) {
+    activeCard = null;
+    overlay.classList.remove("open");
+  }
+  closePalette();
+  buildBoard();
+}
+
+pushSnapshot();
+
 function saveState() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -144,6 +187,7 @@ function importBoard(file) {
           : [],
       }));
       if (activeCard) closeEditor();
+      pushSnapshot();
       state = validated;
       saveState();
       buildBoard();
@@ -221,6 +265,7 @@ function makeCard(input) {
 
     movers.forEach((el, i) => animateAddButton(el, fromTops[i]));
 
+    pushSnapshot();
     syncStateFromDOM();
     updateCounts();
     saveState();
@@ -319,6 +364,7 @@ function buildBoard() {
       title.classList.remove("editing");
       const newTitle = title.textContent.trim() || "untitled";
       title.textContent = newTitle;
+      pushSnapshot();
       state[colIndex].title = newTitle;
       saveState();
     });
@@ -357,6 +403,7 @@ function buildBoard() {
       const c = makeCard({ body: "", color: "", tags: [] });
       cards.appendChild(c);
 
+      pushSnapshot();
       state[colIndex].cards.push({ body: "", color: "", tags: [] });
       updateCounts();
       saveState();
@@ -382,6 +429,7 @@ function buildBoard() {
     cards.addEventListener("drop", (e) => {
       e.preventDefault();
       cards.classList.remove("drag-over");
+      pushSnapshot();
       syncStateFromDOM();
       updateCounts();
       saveState();
@@ -413,6 +461,7 @@ function buildBoard() {
     e.preventDefault();
     const addBtn = board.querySelector(".add-column");
     if (addBtn) board.appendChild(addBtn);
+    pushSnapshot();
     syncStateFromDOM();
     updateCounts();
     saveState();
@@ -476,6 +525,7 @@ function addCardToColumn(colIndex, body) {
   const c = makeCard({ body: body || "", color: "", tags: [] });
   cards.appendChild(c);
 
+  pushSnapshot();
   state[colIndex].cards.push({ body: body || "", color: "", tags: [] });
   updateCounts();
   saveState();
@@ -485,6 +535,7 @@ function addCardToColumn(colIndex, body) {
 }
 
 function addColumn(title) {
+  pushSnapshot();
   state.push({ title: title || "new", cards: [] });
   saveState();
   buildBoard();
@@ -493,6 +544,7 @@ function addColumn(title) {
 function deleteColumn(colIndex) {
   const name = state[colIndex]?.title || "column";
   if (!confirm(`Delete "${name}" column and all its cards?`)) return;
+  pushSnapshot();
   state.splice(colIndex, 1);
   saveState();
   buildBoard();
@@ -581,6 +633,7 @@ document.addEventListener("touchend", () => {
     document
       .querySelectorAll(".cards.drag-over")
       .forEach((c) => c.classList.remove("drag-over"));
+    pushSnapshot();
     syncStateFromDOM();
     updateCounts();
     saveState();
@@ -590,6 +643,7 @@ document.addEventListener("touchend", () => {
     touchColDragged.classList.remove("dragging");
     const addBtn = board.querySelector(".add-column");
     if (addBtn) board.appendChild(addBtn);
+    pushSnapshot();
     syncStateFromDOM();
     updateCounts();
     saveState();
@@ -693,6 +747,7 @@ function renderEditorTags(card) {
 function addTag(card, tag) {
   const tags = JSON.parse(card.dataset.tags || "[]");
   if (tags.includes(tag)) return;
+  pushSnapshot();
   tags.push(tag);
   card.dataset.tags = JSON.stringify(tags);
   refreshCard(card);
@@ -704,6 +759,7 @@ function addTag(card, tag) {
 function removeTag(card, tag) {
   let tags = JSON.parse(card.dataset.tags || "[]");
   tags = tags.filter((t) => t !== tag);
+  pushSnapshot();
   card.dataset.tags = JSON.stringify(tags);
   refreshCard(card);
   renderEditorTags(card);
@@ -721,6 +777,7 @@ function renderColorPicker() {
     dot.title = i === 0 ? "default" : "set card color";
     dot.addEventListener("click", () => {
       if (!activeCard) return;
+      pushSnapshot();
       activeCard.dataset.color = color;
       refreshCard(activeCard);
       syncStateFromDOM();
@@ -879,6 +936,7 @@ function closeEditor() {
   if (syncTimeout) clearTimeout(syncTimeout);
   activeCard.dataset.body = editor.innerHTML;
   refreshCard(activeCard);
+  pushSnapshot();
   syncStateFromDOM();
   saveState();
   activeCard = null;
@@ -968,6 +1026,14 @@ if (themeMedia && themeMedia.addEventListener) {
 const importBtn = document.getElementById("importBtn");
 const exportBtn = document.getElementById("exportBtn");
 const fileInput = document.getElementById("importInput");
+
+const undoBtn = document.getElementById("undoBtn");
+const redoBtn = document.getElementById("redoBtn");
+undoBtn.innerHTML = ICON_UNDO;
+redoBtn.innerHTML = ICON_REDO;
+
+undoBtn.addEventListener("click", undo);
+redoBtn.addEventListener("click", redo);
 
 importBtn.addEventListener("click", () => fileInput.click());
 exportBtn.addEventListener("click", exportBoard);
@@ -2088,11 +2154,22 @@ paletteBtn.addEventListener("click", () => openPalette());
 document.addEventListener(
   "keydown",
   (e) => {
-    if (
-      (e.metaKey || e.ctrlKey) &&
-      e.shiftKey &&
-      (e.key === "p" || e.key === "P" || e.code === "KeyP")
-    ) {
+    const mod = e.metaKey || e.ctrlKey;
+    if (!mod) return;
+
+    if (e.shiftKey && (e.key === "z" || e.key === "Z" || e.code === "KeyZ")) {
+      e.preventDefault();
+      redo();
+      return;
+    }
+
+    if (e.key === "z" || e.key === "Z" || e.code === "KeyZ") {
+      e.preventDefault();
+      undo();
+      return;
+    }
+
+    if (e.shiftKey && (e.key === "p" || e.key === "P" || e.code === "KeyP")) {
       e.preventDefault();
       togglePalette();
     }
