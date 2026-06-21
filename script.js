@@ -44,10 +44,6 @@ const ICON_POMODORO =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7"/><path d="M12 9v4l2.5 1.5"/><path d="M9 2h6"/><path d="M12 2v2.5"/></svg>';
 
 document.getElementById("closeBtn").innerHTML = ICON_X_LG;
-document.getElementById("importBtn").innerHTML = ICON_UPLOAD;
-document.getElementById("exportBtn").innerHTML = ICON_DOWNLOAD;
-document.getElementById("paletteBtn").innerHTML = ICON_COMMAND;
-
 const COLUMNS = [
   { title: "to do", cards: [] },
   { title: "in progress", cards: [] },
@@ -267,7 +263,6 @@ function makeCard(input) {
 
     pushSnapshot();
     syncStateFromDOM();
-    updateCounts();
     saveState();
 
     card.addEventListener(
@@ -326,8 +321,6 @@ function buildBoard() {
   state.forEach((col, colIndex) => {
     const column = document.createElement("div");
     column.className = "column";
-    column.draggable = true;
-
     const header = document.createElement("div");
     header.className = "column-header";
 
@@ -335,16 +328,6 @@ function buildBoard() {
     title.className = "title";
     title.textContent = col.title;
     header.appendChild(title);
-
-    const count = document.createElement("span");
-    count.className = "count";
-    header.appendChild(count);
-
-    const del = document.createElement("button");
-    del.className = "column-x";
-    del.innerHTML = ICON_X;
-    del.title = "delete column";
-    header.appendChild(del);
 
     column.appendChild(header);
 
@@ -375,20 +358,6 @@ function buildBoard() {
       }
     });
 
-    del.addEventListener("click", (e) => {
-      e.stopPropagation();
-      deleteColumn(colIndex);
-    });
-
-    column.addEventListener("dragstart", () => {
-      colDragged = column;
-      column.classList.add("dragging");
-    });
-    column.addEventListener("dragend", () => {
-      column.classList.remove("dragging");
-      colDragged = null;
-    });
-
     const cards = document.createElement("div");
     cards.className = "cards no-scrollbar";
     column.appendChild(cards);
@@ -405,7 +374,6 @@ function buildBoard() {
 
       pushSnapshot();
       state[colIndex].cards.push({ body: "", color: "", tags: [] });
-      updateCounts();
       saveState();
       animateAddButton(add, addTop);
 
@@ -431,43 +399,11 @@ function buildBoard() {
       cards.classList.remove("drag-over");
       pushSnapshot();
       syncStateFromDOM();
-      updateCounts();
       saveState();
     });
 
     board.appendChild(column);
   });
-
-  const addColBtn = document.createElement("button");
-  addColBtn.className = "add-column";
-  addColBtn.innerHTML = ICON_PLUS + "<span>new column</span>";
-  addColBtn.addEventListener("click", () => addColumn("new"));
-  board.appendChild(addColBtn);
-
-  board.addEventListener("dragover", (e) => {
-    if (!colDragged) return;
-    e.preventDefault();
-    const addBtn = board.querySelector(".add-column");
-    const after = afterColumn(board, e.clientX);
-    if (after == null) {
-      if (addBtn) board.insertBefore(colDragged, addBtn);
-      else board.appendChild(colDragged);
-    } else {
-      board.insertBefore(colDragged, after);
-    }
-  });
-  board.addEventListener("drop", (e) => {
-    if (!colDragged) return;
-    e.preventDefault();
-    const addBtn = board.querySelector(".add-column");
-    if (addBtn) board.appendChild(addBtn);
-    pushSnapshot();
-    syncStateFromDOM();
-    updateCounts();
-    saveState();
-  });
-
-  updateCounts();
 }
 
 function afterElement(container, y) {
@@ -476,17 +412,6 @@ function afterElement(container, y) {
   for (const el of els) {
     const box = el.getBoundingClientRect();
     const offset = y - box.top - box.height / 2;
-    if (offset < 0 && offset > closest.offset) closest = { offset, el };
-  }
-  return closest.el;
-}
-
-function afterColumn(container, x) {
-  const els = [...container.querySelectorAll(".column:not(.dragging)")];
-  let closest = { offset: -Infinity, el: null };
-  for (const el of els) {
-    const box = el.getBoundingClientRect();
-    const offset = x - box.left - box.width / 2;
     if (offset < 0 && offset > closest.offset) closest = { offset, el };
   }
   return closest.el;
@@ -507,13 +432,6 @@ function animateAddButton(add, fromTop) {
   );
 }
 
-function updateCounts() {
-  document.querySelectorAll(".column").forEach((col) => {
-    const n = col.querySelectorAll(".card:not(.card-removing)").length;
-    col.querySelector(".count").textContent = n;
-  });
-}
-
 function addCardToColumn(colIndex, body) {
   const columns = board.querySelectorAll(".column");
   const column = columns[colIndex];
@@ -527,33 +445,14 @@ function addCardToColumn(colIndex, body) {
 
   pushSnapshot();
   state[colIndex].cards.push({ body: body || "", color: "", tags: [] });
-  updateCounts();
   saveState();
   animateAddButton(add, addTop);
 
   setTimeout(() => c.classList.remove("card-enter"), 520);
 }
 
-function addColumn(title) {
-  pushSnapshot();
-  state.push({ title: title || "new", cards: [] });
-  saveState();
-  buildBoard();
-}
-
-function deleteColumn(colIndex) {
-  const name = state[colIndex]?.title || "column";
-  if (!confirm(`Delete "${name}" column and all its cards?`)) return;
-  pushSnapshot();
-  state.splice(colIndex, 1);
-  saveState();
-  buildBoard();
-}
-
 let dragged = null;
-let colDragged = null;
 let touchDragged = null;
-let touchColDragged = null;
 let touchStartPos = null;
 let touchStartTarget = null;
 
@@ -575,20 +474,11 @@ document.addEventListener(
     const dy = Math.abs(touch.clientY - touchStartPos.y);
     if (dx < 10 && dy < 10) return;
 
-    if (!touchDragged && !touchColDragged) {
+    if (!touchDragged) {
       const card = touchStartTarget.closest(".card");
-      const col = touchStartTarget.closest(".column");
       if (card && !touchStartTarget.closest(".card-x")) {
         touchDragged = card;
         card.classList.add("dragging");
-      } else if (
-        col &&
-        touchStartTarget.closest(".column-header") &&
-        !touchStartTarget.closest(".column-x") &&
-        !touchStartTarget.closest(".title")
-      ) {
-        touchColDragged = col;
-        col.classList.add("dragging");
       } else {
         return;
       }
@@ -608,21 +498,6 @@ document.addEventListener(
       if (after == null) cards.appendChild(touchDragged);
       else cards.insertBefore(touchDragged, after);
     }
-
-    if (touchColDragged) {
-      touchColDragged.style.pointerEvents = "none";
-      const el = document.elementFromPoint(touch.clientX, touch.clientY);
-      touchColDragged.style.pointerEvents = "";
-      if (!el) return;
-      const addBtn = board.querySelector(".add-column");
-      const after = afterColumn(board, touch.clientX);
-      if (after == null) {
-        if (addBtn) board.insertBefore(touchColDragged, addBtn);
-        else board.appendChild(touchColDragged);
-      } else {
-        board.insertBefore(touchColDragged, after);
-      }
-    }
   },
   { passive: false },
 );
@@ -635,19 +510,8 @@ document.addEventListener("touchend", () => {
       .forEach((c) => c.classList.remove("drag-over"));
     pushSnapshot();
     syncStateFromDOM();
-    updateCounts();
     saveState();
     touchDragged = null;
-  }
-  if (touchColDragged) {
-    touchColDragged.classList.remove("dragging");
-    const addBtn = board.querySelector(".add-column");
-    if (addBtn) board.appendChild(addBtn);
-    pushSnapshot();
-    syncStateFromDOM();
-    updateCounts();
-    saveState();
-    touchColDragged = null;
   }
   touchStartPos = null;
   touchStartTarget = null;
@@ -657,10 +521,6 @@ document.addEventListener("touchcancel", () => {
   if (touchDragged) {
     touchDragged.classList.remove("dragging");
     touchDragged = null;
-  }
-  if (touchColDragged) {
-    touchColDragged.classList.remove("dragging");
-    touchColDragged = null;
   }
   document
     .querySelectorAll(".cards.drag-over")
@@ -961,8 +821,6 @@ const THEMES = [
   { id: "solarized-dark", label: "Solarized Dark", family: "dark" },
 ];
 
-const themeToggle = document.getElementById("themeToggle");
-
 function updateFavicon() {
   const canvas = document.createElement("canvas");
   canvas.width = 32;
@@ -991,8 +849,6 @@ function updateFavicon() {
 
 function applyTheme(themeId) {
   document.documentElement.setAttribute("data-theme", themeId);
-  themeToggle.innerHTML = ICON_THEME_CMD;
-  themeToggle.title = "switch theme";
   updateFavicon();
 }
 
@@ -1001,13 +857,6 @@ function currentTheme() {
 }
 
 applyTheme(currentTheme());
-
-let themeDropdownOpen = false;
-
-themeToggle.addEventListener("click", () => {
-  if (themeDropdownOpen) closeThemeDropdown();
-  else openThemeDropdown();
-});
 
 const themeMedia =
   window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)");
@@ -1023,20 +872,8 @@ if (themeMedia && themeMedia.addEventListener) {
   });
 }
 
-const importBtn = document.getElementById("importBtn");
-const exportBtn = document.getElementById("exportBtn");
 const fileInput = document.getElementById("importInput");
 
-const undoBtn = document.getElementById("undoBtn");
-const redoBtn = document.getElementById("redoBtn");
-undoBtn.innerHTML = ICON_UNDO;
-redoBtn.innerHTML = ICON_REDO;
-
-undoBtn.addEventListener("click", undo);
-redoBtn.addEventListener("click", redo);
-
-importBtn.addEventListener("click", () => fileInput.click());
-exportBtn.addEventListener("click", exportBoard);
 fileInput.addEventListener("change", () => importBoard(fileInput.files[0]));
 
 const timerStack = document.getElementById("timerStack");
@@ -1493,7 +1330,6 @@ const paletteInput = document.getElementById("paletteInput");
 const paletteLead = document.getElementById("paletteLead");
 const paletteBody = document.getElementById("paletteBody");
 const paletteFooterEl = document.getElementById("paletteFooter");
-const paletteBtn = document.getElementById("paletteBtn");
 
 let palMode = "root";
 let palSelected = 0;
@@ -1511,18 +1347,27 @@ function commandList() {
   return [
     {
       icon: ICON_PLUS_SM,
-      label: "add column",
-      keywords: "add column new list create column",
+      label: "add a task",
+      keywords: "add task card new todo create item",
+      run: enterAddMode,
+    },
+    {
+      icon: ICON_UNDO,
+      label: "undo",
+      keywords: "undo revert back",
       run: () => {
-        addColumn("new");
+        undo();
         closePalette();
       },
     },
     {
-      icon: ICON_PLUS_SM,
-      label: "add a task",
-      keywords: "add task card new todo create item",
-      run: enterAddMode,
+      icon: ICON_REDO,
+      label: "redo",
+      keywords: "redo forward restore",
+      run: () => {
+        redo();
+        closePalette();
+      },
     },
     {
       icon: ICON_TIMER,
@@ -1574,7 +1419,7 @@ function commandList() {
 }
 
 function setBackgroundInert(on) {
-  [board, document.getElementById("topActions"), timerStack].forEach((el) => {
+  [board, timerStack].forEach((el) => {
     if (!el) return;
     if (on) el.setAttribute("inert", "");
     else el.removeAttribute("inert");
@@ -1970,73 +1815,6 @@ function submitThemeById(id) {
   closePalette();
 }
 
-function renderThemeDropdown() {
-  let dropdown = document.getElementById("themeDropdown");
-  if (!dropdown) {
-    dropdown = document.createElement("div");
-    dropdown.id = "themeDropdown";
-    dropdown.className = "theme-dropdown";
-    dropdown.role = "listbox";
-    document.body.appendChild(dropdown);
-  }
-  const current = currentTheme();
-  dropdown.innerHTML = "";
-  THEMES.forEach((t) => {
-    const item = document.createElement("button");
-    item.className =
-      "theme-dropdown-item" + (t.id === current ? " selected" : "");
-    item.type = "button";
-    item.innerHTML =
-      '<span class="row-icon">' +
-      (t.id === current ? ICON_CHECK : "") +
-      '</span><span class="row-label">' +
-      t.label +
-      "</span>";
-    item.addEventListener("click", (e) => {
-      e.stopPropagation();
-      submitThemeById(t.id);
-      closeThemeDropdown();
-    });
-    dropdown.appendChild(item);
-  });
-}
-
-function openThemeDropdown() {
-  if (themeDropdownOpen) return;
-  renderThemeDropdown();
-  const dropdown = document.getElementById("themeDropdown");
-  const rect = themeToggle.getBoundingClientRect();
-  dropdown.style.position = "fixed";
-  dropdown.style.top = rect.bottom + 6 + "px";
-  dropdown.style.right = window.innerWidth - rect.right + "px";
-  requestAnimationFrame(() => dropdown.classList.add("open"));
-  themeDropdownOpen = true;
-  document.addEventListener("keydown", themeDropdownKeyHandler);
-  setTimeout(() => {
-    document.addEventListener("click", themeDropdownOutsideHandler);
-  }, 0);
-}
-
-function closeThemeDropdown() {
-  const dropdown = document.getElementById("themeDropdown");
-  if (!dropdown) return;
-  dropdown.classList.remove("open");
-  themeDropdownOpen = false;
-  document.removeEventListener("keydown", themeDropdownKeyHandler);
-  document.removeEventListener("click", themeDropdownOutsideHandler);
-}
-
-function themeDropdownKeyHandler(e) {
-  if (e.key === "Escape") closeThemeDropdown();
-}
-
-function themeDropdownOutsideHandler(e) {
-  const dropdown = document.getElementById("themeDropdown");
-  if (!dropdown || !themeDropdownOpen) return;
-  if (dropdown.contains(e.target) || themeToggle.contains(e.target)) return;
-  closeThemeDropdown();
-}
-
 function parseDuration(str) {
   if (!str) return null;
   str = str.trim().toLowerCase();
@@ -2149,7 +1927,6 @@ paletteOverlay.addEventListener("keydown", (e) => {
 });
 
 paletteBackdrop.addEventListener("click", () => closePalette());
-paletteBtn.addEventListener("click", () => openPalette());
 
 document.addEventListener(
   "keydown",
