@@ -42,6 +42,12 @@ const ICON_REDO =
 
 const ICON_POMODORO =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7"/><path d="M12 9v4l2.5 1.5"/><path d="M9 2h6"/><path d="M12 2v2.5"/></svg>';
+const ICON_CHEVRON_LEFT =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>';
+const ICON_CHEVRON_RIGHT =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
+const ICON_BOARD =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>';
 
 document.getElementById("closeBtn").innerHTML = ICON_X_LG;
 const COLUMNS = [
@@ -63,6 +69,11 @@ const CARD_COLORS = [
 ];
 
 let uid = 1;
+let boardUid = 1;
+
+function generateBoardId() {
+  return "b" + boardUid++;
+}
 
 function getCleanText(html) {
   if (!html) return "";
@@ -76,34 +87,84 @@ function titleFromBody(body) {
   return getCleanText(body).trim().split("\n")[0] || "untitled";
 }
 
-const board = document.getElementById("board");
+const boardEl = document.getElementById("board");
+
+function createDefaultState() {
+  return {
+    boards: [
+      {
+        id: generateBoardId(),
+        name: "My Board",
+        columns: JSON.parse(JSON.stringify(COLUMNS)),
+      },
+    ],
+    activeBoardId: null,
+  };
+}
+
+function validateColumns(cols) {
+  return cols.map((col, i) => ({
+    title: col.title || COLUMNS[i]?.title || "untitled",
+    cards: Array.isArray(col.cards)
+      ? col.cards.map((item) => {
+          if (typeof item === "string")
+            return { body: item, color: "", tags: [] };
+          return {
+            body: item?.body || "",
+            color: item?.color || "",
+            tags: Array.isArray(item?.tags) ? item.tags : [],
+          };
+        })
+      : [],
+  }));
+}
 
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return COLUMNS;
+    if (!raw) return createDefaultState();
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return COLUMNS;
-    return parsed.map((col, i) => ({
-      title: col.title || COLUMNS[i]?.title || "untitled",
-      cards: Array.isArray(col.cards)
-        ? col.cards.map((item) => {
-            if (typeof item === "string")
-              return { body: item, color: "", tags: [] };
-            return {
-              body: item?.body || "",
-              color: item?.color || "",
-              tags: Array.isArray(item?.tags) ? item.tags : [],
-            };
-          })
-        : [],
-    }));
+    if (Array.isArray(parsed)) {
+      const def = createDefaultState();
+      def.boards[0].columns = validateColumns(parsed);
+      def.activeBoardId = def.boards[0].id;
+      return def;
+    }
+    if (parsed && typeof parsed === "object" && Array.isArray(parsed.boards)) {
+      parsed.boards = parsed.boards.map((b) => ({
+        ...b,
+        columns: validateColumns(b.columns || []),
+      }));
+      if (!parsed.boards.some((b) => b.id === parsed.activeBoardId)) {
+        parsed.activeBoardId = parsed.boards[0]?.id || null;
+      }
+      const maxUid = parsed.boards.reduce(
+        (m, b) =>
+          Math.max(m, parseInt(String(b.id).replace(/\D/g, ""), 10) || 0),
+        0,
+      );
+      boardUid = maxUid + 1;
+      return parsed;
+    }
+    return createDefaultState();
   } catch {
-    return COLUMNS;
+    return createDefaultState();
   }
 }
 
+function activeBoard() {
+  return state.boards.find((b) => b.id === state.activeBoardId);
+}
+
+function activeBoardColumns() {
+  const b = activeBoard();
+  return b ? b.columns : [];
+}
+
 let state = loadState();
+if (!state.activeBoardId && state.boards.length > 0) {
+  state.activeBoardId = state.boards[0].id;
+}
 
 const MAX_HISTORY = 50;
 let undoStack = [];
@@ -151,12 +212,14 @@ function saveState() {
 
 function exportBoard() {
   syncStateFromDOM();
-  const json = JSON.stringify(state, null, 2);
+  const board = activeBoard();
+  if (!board) return;
+  const json = JSON.stringify(board.columns, null, 2);
   const blob = new Blob([json], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "trell0-board.json";
+  a.download = (board.name || "board") + ".json";
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -168,23 +231,12 @@ function importBoard(file) {
     try {
       const parsed = JSON.parse(e.target.result);
       if (!Array.isArray(parsed)) throw new Error();
-      const validated = parsed.map((col, i) => ({
-        title: col.title || COLUMNS[i]?.title || "untitled",
-        cards: Array.isArray(col.cards)
-          ? col.cards.map((item) => {
-              if (typeof item === "string")
-                return { body: item, color: "", tags: [] };
-              return {
-                body: item?.body || "",
-                color: item?.color || "",
-                tags: Array.isArray(item?.tags) ? item.tags : [],
-              };
-            })
-          : [],
-      }));
+      const board = activeBoard();
+      if (!board) throw new Error();
+      const validated = validateColumns(parsed);
       if (activeCard) closeEditor();
       pushSnapshot();
-      state = validated;
+      board.columns = validated;
       saveState();
       buildBoard();
     } catch {
@@ -196,7 +248,9 @@ function importBoard(file) {
 }
 
 function syncStateFromDOM() {
-  state = [...board.querySelectorAll(".column")].map((col) => ({
+  const board = activeBoard();
+  if (!board) return;
+  board.columns = [...boardEl.querySelectorAll(".column")].map((col) => ({
     title: col.querySelector(".title")?.textContent || "untitled",
     cards: [...col.querySelectorAll(".card:not(.card-removing)")].map(
       (card) => ({
@@ -218,7 +272,7 @@ function makeCard(input) {
         ? input.tags
         : [];
   const card = document.createElement("div");
-  card.className = "card card-enter";
+  card.className = "card";
   card.draggable = true;
   card.dataset.id = "c" + uid++;
   card.dataset.body = body || "";
@@ -317,8 +371,38 @@ function refreshCard(card) {
 }
 
 function buildBoard() {
-  board.innerHTML = "";
-  state.forEach((col, colIndex) => {
+  boardEl.innerHTML = "";
+  const board = activeBoard();
+  if (!board) return;
+
+  const titleEl = document.createElement("div");
+  titleEl.className = "board-title";
+  titleEl.textContent = board.name;
+  titleEl.addEventListener("click", (e) => {
+    e.stopPropagation();
+    titleEl.contentEditable = "true";
+    titleEl.classList.add("editing");
+    titleEl.focus();
+    const range = document.createRange();
+    range.selectNodeContents(titleEl);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  });
+  titleEl.addEventListener("blur", () => {
+    titleEl.contentEditable = "false";
+    titleEl.classList.remove("editing");
+    renameBoard(board.id, titleEl.textContent);
+  });
+  titleEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      titleEl.blur();
+    }
+  });
+  boardEl.appendChild(titleEl);
+
+  board.columns.forEach((col, colIndex) => {
     const column = document.createElement("div");
     column.className = "column";
     const header = document.createElement("div");
@@ -348,7 +432,7 @@ function buildBoard() {
       const newTitle = title.textContent.trim() || "untitled";
       title.textContent = newTitle;
       pushSnapshot();
-      state[colIndex].title = newTitle;
+      board.columns[colIndex].title = newTitle;
       saveState();
     });
     title.addEventListener("keydown", (e) => {
@@ -370,10 +454,11 @@ function buildBoard() {
     add.addEventListener("click", () => {
       const addTop = add.getBoundingClientRect().top;
       const c = makeCard({ body: "", color: "", tags: [] });
+      c.classList.add("card-enter");
       cards.appendChild(c);
 
       pushSnapshot();
-      state[colIndex].cards.push({ body: "", color: "", tags: [] });
+      board.columns[colIndex].cards.push({ body: "", color: "", tags: [] });
       saveState();
       animateAddButton(add, addTop);
 
@@ -402,7 +487,7 @@ function buildBoard() {
       saveState();
     });
 
-    board.appendChild(column);
+    boardEl.appendChild(column);
   });
 }
 
@@ -433,22 +518,245 @@ function animateAddButton(add, fromTop) {
 }
 
 function addCardToColumn(colIndex, body) {
-  const columns = board.querySelectorAll(".column");
+  const columns = boardEl.querySelectorAll(".column");
   const column = columns[colIndex];
-  if (!column || !state[colIndex]) return;
+  const board = activeBoard();
+  if (!column || !board || !board.columns[colIndex]) return;
   const cards = column.querySelector(".cards");
   const add = column.querySelector(".add-card");
   const addTop = add.getBoundingClientRect().top;
 
   const c = makeCard({ body: body || "", color: "", tags: [] });
+  c.classList.add("card-enter");
   cards.appendChild(c);
 
   pushSnapshot();
-  state[colIndex].cards.push({ body: body || "", color: "", tags: [] });
+  board.columns[colIndex].cards.push({ body: body || "", color: "", tags: [] });
   saveState();
   animateAddButton(add, addTop);
 
   setTimeout(() => c.classList.remove("card-enter"), 520);
+}
+
+function createBoard(name) {
+  const board = {
+    id: generateBoardId(),
+    name: name || "Untitled",
+    columns: JSON.parse(JSON.stringify(COLUMNS)),
+  };
+  pushSnapshot();
+  state.boards.push(board);
+  saveState();
+  return board;
+}
+
+function renameBoard(boardId, name) {
+  const board = state.boards.find((b) => b.id === boardId);
+  if (!board) return;
+  pushSnapshot();
+  board.name = name.trim() || "Untitled";
+  saveState();
+}
+
+function switchBoard(boardId) {
+  const board = state.boards.find((b) => b.id === boardId);
+  if (!board || board.id === state.activeBoardId) return;
+  if (activeCard) closeEditor();
+  pushSnapshot();
+  state.activeBoardId = boardId;
+  saveState();
+  buildBoard();
+}
+
+function deleteBoard(boardId) {
+  if (state.boards.length <= 1) return;
+  const idx = state.boards.findIndex((b) => b.id === boardId);
+  if (idx === -1) return;
+  pushSnapshot();
+  state.boards.splice(idx, 1);
+  if (state.activeBoardId === boardId) {
+    state.activeBoardId =
+      state.boards[Math.min(idx, state.boards.length - 1)].id;
+  }
+  if (activeCard) closeEditor();
+  saveState();
+  buildBoard();
+}
+
+function animateGridItems(grid, beforeFn) {
+  const items = [...grid.children];
+  const oldRects = items.map((el) => el.getBoundingClientRect());
+  beforeFn();
+  items.forEach((el, i) => {
+    if (!grid.contains(el)) return;
+    const newRect = el.getBoundingClientRect();
+    const dx = oldRects[i].left - newRect.left;
+    const dy = oldRects[i].top - newRect.top;
+    if (dx || dy) {
+      el.animate(
+        [
+          { transform: `translate(${dx}px, ${dy}px)` },
+          { transform: "translate(0, 0)" },
+        ],
+        { duration: 450, easing: "cubic-bezier(0.16, 1, 0.3, 1)" },
+      );
+    }
+  });
+}
+
+function renderBoardView() {
+  const view = document.getElementById("boardView");
+  if (!view) return;
+
+  view.innerHTML =
+    '<div class="board-view-header">' +
+    '<span class="board-view-title">boards</span>' +
+    "</div>" +
+    '<div class="board-view-grid" id="boardViewGrid"></div>';
+
+  const grid = document.getElementById("boardViewGrid");
+
+  state.boards.forEach((b, i) => {
+    const card = document.createElement("button");
+    card.className = "board-card";
+    card.type = "button";
+    card.style.animationDelay = i * 35 + "ms";
+    card.dataset.id = b.id;
+
+    const totalCards = b.columns.reduce((s, c) => s + c.cards.length, 0);
+
+    card.innerHTML =
+      '<div class="board-card-body">' +
+      '<span class="board-card-name">' +
+      esc(b.name) +
+      "</span>" +
+      (totalCards > 0
+        ? '<span class="board-card-count">' +
+          totalCards +
+          (totalCards === 1 ? " card" : " cards") +
+          "</span>"
+        : '<span class="board-card-count board-card-empty">empty</span>') +
+      "</div>" +
+      '<button class="board-card-del" title="delete board">' +
+      ICON_X_TINY +
+      "</button>";
+
+    card.addEventListener("click", () => openBoard(b.id));
+
+    const del = card.querySelector(".board-card-del");
+    del.addEventListener("click", (e) => {
+      e.stopPropagation();
+      animateGridItems(grid, () => {
+        deleteBoard(b.id);
+        card.remove();
+      });
+    });
+
+    grid.appendChild(card);
+  });
+
+  const newCard = document.createElement("button");
+  newCard.className = "board-card board-card-new";
+  newCard.type = "button";
+  newCard.style.animationDelay = state.boards.length * 35 + "ms";
+  newCard.innerHTML =
+    '<span class="board-card-new-label">+ create new board</span>';
+  newCard.addEventListener("click", () => {
+    const b = createBoard();
+    const idx = state.boards.indexOf(b);
+    const card = document.createElement("button");
+    card.className = "board-card";
+    card.type = "button";
+    card.style.animationDelay = idx * 35 + "ms";
+    card.dataset.id = b.id;
+    const totalCards = b.columns.reduce((s, c) => s + c.cards.length, 0);
+    card.innerHTML =
+      '<div class="board-card-body">' +
+      '<span class="board-card-name">' +
+      esc(b.name) +
+      "</span>" +
+      (totalCards > 0
+        ? '<span class="board-card-count">' +
+          totalCards +
+          (totalCards === 1 ? " card" : " cards") +
+          "</span>"
+        : '<span class="board-card-count board-card-empty">empty</span>') +
+      "</div>" +
+      '<button class="board-card-del" title="delete board">' +
+      ICON_X_TINY +
+      "</button>";
+    card.addEventListener("click", () => openBoard(b.id));
+    const del = card.querySelector(".board-card-del");
+    del.addEventListener("click", (e) => {
+      e.stopPropagation();
+      animateGridItems(grid, () => {
+        deleteBoard(b.id);
+        card.remove();
+      });
+    });
+
+    animateGridItems(grid, () => grid.insertBefore(card, newCard));
+  });
+  grid.appendChild(newCard);
+}
+
+let animating = false;
+
+function openBoard(id) {
+  if (animating) return;
+  const board = activeBoard();
+  if (board && board.id === id) {
+    buildBoard();
+    const view = document.getElementById("boardView");
+    view.classList.add("hidden");
+    document.getElementById("board").classList.add("visible");
+    addBoardBackBtn();
+    return;
+  }
+
+  animating = true;
+  const view = document.getElementById("boardView");
+  const boardEl = document.getElementById("board");
+
+  switchBoard(id);
+
+  view.classList.add("hidden");
+  boardEl.classList.add("visible");
+  addBoardBackBtn();
+
+  setTimeout(() => {
+    animating = false;
+  }, 550);
+}
+
+function addBoardBackBtn() {
+  let btn = document.getElementById("boardBackBtn");
+  if (btn) return;
+  btn = document.createElement("button");
+  btn.id = "boardBackBtn";
+  btn.className = "board-back-btn";
+  btn.title = "back to boards";
+  btn.innerHTML = ICON_CHEVRON_LEFT;
+  btn.addEventListener("click", closeBoardView);
+  document.getElementById("board").appendChild(btn);
+}
+
+function closeBoardView() {
+  if (animating) return;
+  animating = true;
+  const view = document.getElementById("boardView");
+  const boardEl = document.getElementById("board");
+  const btn = document.getElementById("boardBackBtn");
+  if (btn) btn.remove();
+
+  boardEl.classList.remove("visible");
+  view.classList.remove("hidden");
+
+  renderBoardView();
+
+  setTimeout(() => {
+    animating = false;
+  }, 550);
 }
 
 let dragged = null;
@@ -456,7 +764,7 @@ let touchDragged = null;
 let touchStartPos = null;
 let touchStartTarget = null;
 
-board.addEventListener(
+boardEl.addEventListener(
   "touchstart",
   (e) => {
     touchStartPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -1340,7 +1648,8 @@ let palHintTimeout = null;
 const TIMER_PRESETS = [5, 10, 15, 25, 45];
 
 function columnNames() {
-  return state.map((c) => c.title || "untitled");
+  const board = activeBoard();
+  return board ? board.columns.map((c) => c.title || "untitled") : [];
 }
 
 function commandList() {
@@ -1350,6 +1659,12 @@ function commandList() {
       label: "add a task",
       keywords: "add task card new todo create item",
       run: enterAddMode,
+    },
+    {
+      icon: ICON_BOARD,
+      label: "boards",
+      keywords: "board switch create new rename delete manage",
+      run: enterBoardMode,
     },
     {
       icon: ICON_UNDO,
@@ -1419,7 +1734,12 @@ function commandList() {
 }
 
 function setBackgroundInert(on) {
-  [board, timerStack].forEach((el) => {
+  [
+    boardEl,
+    timerStack,
+    document.getElementById("sidebar"),
+    document.getElementById("sidebarToggle"),
+  ].forEach((el) => {
     if (!el) return;
     if (on) el.setAttribute("inert", "");
     else el.removeAttribute("inert");
@@ -1466,7 +1786,9 @@ function renderLead() {
           ? "pomodoro"
           : palMode === "theme"
             ? "themes"
-            : "timer";
+            : palMode === "board"
+              ? "boards"
+              : "timer";
     paletteLead.innerHTML =
       '<span class="mode-chip" role="button" tabindex="0">' +
       label +
@@ -1484,6 +1806,8 @@ function setPlaceholder() {
     paletteInput.placeholder = "minutes — or mm:ss (e.g. 25 or 5:00)";
   else if (palMode === "pomodoro")
     paletteInput.placeholder = "work/break minutes — e.g. 25/5";
+  else if (palMode === "board")
+    paletteInput.placeholder = "pick a board or type new name…";
   else paletteInput.placeholder = "type a command…";
 }
 
@@ -1493,6 +1817,7 @@ function renderBody() {
   else if (palMode === "timer") renderTimerMode();
   else if (palMode === "pomodoro") renderPomodoroMode();
   else if (palMode === "theme") renderThemeMode();
+  else if (palMode === "board") renderBoardMode();
   paletteFooterEl.style.display = palMode === "root" ? "" : "none";
 }
 
@@ -1815,6 +2140,95 @@ function submitThemeById(id) {
   closePalette();
 }
 
+function enterBoardMode() {
+  palMode = "board";
+  palSelected = 0;
+  paletteInput.value = "";
+  renderLead();
+  setPlaceholder();
+  renderBody();
+  requestAnimationFrame(() => paletteInput.focus());
+}
+
+function renderBoardMode() {
+  const q = paletteInput.value.trim().toLowerCase();
+  const filtered = q
+    ? state.boards.filter((b) => b.name.toLowerCase().includes(q))
+    : state.boards;
+
+  const showCreate = q && !state.boards.some((b) => b.name.toLowerCase() === q);
+
+  paletteBody.innerHTML = "";
+
+  if (filtered.length === 0 && !showCreate) {
+    paletteBody.innerHTML =
+      '<div class="palette-empty">no matching boards</div>';
+    return;
+  }
+
+  const chips = document.createElement("div");
+  chips.className = "palette-chips";
+
+  if (showCreate) {
+    const chip = document.createElement("button");
+    chip.className = "palette-chip active";
+    chip.type = "button";
+    chip.innerHTML = '<span class="chip-dot"></span>create "' + esc(q) + '"';
+    chip.addEventListener("click", () => {
+      createBoard(q);
+      closePalette();
+    });
+    chips.appendChild(chip);
+  }
+
+  filtered.forEach((b) => {
+    const chip = document.createElement("button");
+    chip.className =
+      "palette-chip" + (b.id === state.activeBoardId ? " active" : "");
+    chip.type = "button";
+    const count = b.columns.reduce((sum, c) => sum + c.cards.length, 0);
+    chip.innerHTML =
+      '<span class="chip-dot"></span>' +
+      esc(b.name) +
+      (count > 0 ? ' <span style="opacity:0.35">' + count + "</span>" : "");
+    chip.addEventListener("click", () => {
+      if (b.id !== state.activeBoardId) {
+        openBoard(b.id);
+      }
+      closePalette();
+    });
+    chips.appendChild(chip);
+  });
+
+  paletteBody.appendChild(chips);
+
+  const hint = document.createElement("div");
+  hint.className = "palette-hint";
+  hint.textContent = showCreate
+    ? "press enter to create — or pick a board"
+    : "type a name to create — or pick a board";
+  paletteBody.appendChild(hint);
+
+  palRows = showCreate ? [{ id: "create" }, ...filtered] : filtered;
+  palSelected = 0;
+}
+
+function submitBoard() {
+  const q = paletteInput.value.trim();
+  if (!q) return;
+  const existing = state.boards.find(
+    (b) => b.name.toLowerCase() === q.toLowerCase(),
+  );
+  if (existing) {
+    if (existing.id !== state.activeBoardId) openBoard(existing.id);
+    closePalette();
+    return;
+  }
+  createBoard(q);
+  renderBoardView();
+  closePalette();
+}
+
 function parseDuration(str) {
   if (!str) return null;
   str = str.trim().toLowerCase();
@@ -1886,6 +2300,9 @@ paletteInput.addEventListener("input", () => {
   } else if (palMode === "theme") {
     palSelected = 0;
     renderThemeMode();
+  } else if (palMode === "board") {
+    palSelected = 0;
+    renderBoardMode();
   }
 });
 
@@ -1897,6 +2314,7 @@ paletteInput.addEventListener("keydown", (e) => {
     else if (palMode === "timer") submitTimer();
     else if (palMode === "pomodoro") submitPomodoro();
     else if (palMode === "theme") submitTheme();
+    else if (palMode === "board") submitBoard();
   } else if (
     e.key === "Backspace" &&
     paletteInput.value === "" &&
@@ -1913,7 +2331,7 @@ paletteOverlay.addEventListener("keydown", (e) => {
     closePalette();
     return;
   }
-  if (palMode === "root" || palMode === "theme") {
+  if (palMode === "root" || palMode === "theme" || palMode === "board") {
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setSelected(Math.min(palSelected + 1, palRows.length - 1));
@@ -1950,10 +2368,17 @@ document.addEventListener(
       e.preventDefault();
       togglePalette();
     }
+
+    if (e.shiftKey && (e.key === "b" || e.key === "B" || e.code === "KeyB")) {
+      e.preventDefault();
+      const bv = document.getElementById("boardView");
+      if (bv && !bv.classList.contains("hidden")) return;
+      closeBoardView();
+    }
   },
   true,
 );
 
-buildBoard();
+renderBoardView();
 renderColorPicker();
 initTimers();
