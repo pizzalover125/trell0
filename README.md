@@ -1,6 +1,6 @@
 # trell0
 
-minimalist productivity tool.
+minimalist productivity tool. try it out at https://trell0.vercel.app/.
 
 ## what is a trello board?
 
@@ -9,17 +9,5 @@ also known as a Kanban board, a trello board is a way to organize anything. thin
 every trello board on the market is sluggish and built for corporate teams. i wanted to build something for the new generation.
 
 ## features
-
-- move nodes
-- edit nodes
-- color nodes
-- slick animations
-- localStorage auto-save
-- import/export (json)
-- landing page
-- themes
-- node tags
-- create columns
-- edit column titles
 
 ## planned features

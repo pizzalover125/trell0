@@ -399,8 +399,16 @@ function buildBoard() {
       e.preventDefault();
       titleEl.blur();
     }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      titleEl.textContent = board.name;
+      titleEl.blur();
+    }
   });
   boardEl.appendChild(titleEl);
+
+  const boardColumnsEl = document.createElement("div");
+  boardColumnsEl.className = "board-columns no-scrollbar";
 
   board.columns.forEach((col, colIndex) => {
     const column = document.createElement("div");
@@ -487,8 +495,10 @@ function buildBoard() {
       saveState();
     });
 
-    boardEl.appendChild(column);
+    boardColumnsEl.appendChild(column);
   });
+
+  boardEl.appendChild(boardColumnsEl);
 }
 
 function afterElement(container, y) {
@@ -604,6 +614,79 @@ function animateGridItems(grid, beforeFn) {
   });
 }
 
+function createBoardCard(b, i, grid) {
+  const card = document.createElement("button");
+  card.className = "board-card";
+  card.type = "button";
+  card.style.animationDelay = i * 35 + "ms";
+  card.dataset.id = b.id;
+
+  const totalCards = b.columns.reduce((s, c) => s + c.cards.length, 0);
+
+  card.innerHTML =
+    '<div class="board-card-body">' +
+    '<span class="board-card-name">' +
+    esc(b.name) +
+    "</span>" +
+    (totalCards > 0
+      ? '<span class="board-card-count">' +
+        totalCards +
+        (totalCards === 1 ? " card" : " cards") +
+        "</span>"
+      : '<span class="board-card-count board-card-empty">empty</span>') +
+    "</div>" +
+    '<button class="board-card-del" title="delete board">' +
+    ICON_X_TINY +
+    "</button>";
+
+  card.addEventListener("click", () => openBoard(b.id));
+
+  const nameEl = card.querySelector(".board-card-name");
+  nameEl.addEventListener("click", (e) => {
+    e.stopPropagation();
+    nameEl.contentEditable = "true";
+    nameEl.classList.add("editing");
+    nameEl.focus();
+    const range = document.createRange();
+    range.selectNodeContents(nameEl);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  });
+  nameEl.addEventListener("blur", () => {
+    nameEl.contentEditable = "false";
+    nameEl.classList.remove("editing");
+    const newName = nameEl.textContent.trim();
+    if (newName) {
+      renameBoard(b.id, newName);
+    } else {
+      nameEl.textContent = b.name;
+    }
+  });
+  nameEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      nameEl.blur();
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      nameEl.textContent = b.name;
+      nameEl.blur();
+    }
+  });
+
+  const del = card.querySelector(".board-card-del");
+  del.addEventListener("click", (e) => {
+    e.stopPropagation();
+    animateGridItems(grid, () => {
+      deleteBoard(b.id);
+      card.remove();
+    });
+  });
+
+  return card;
+}
+
 function renderBoardView() {
   const view = document.getElementById("boardView");
   if (!view) return;
@@ -617,41 +700,7 @@ function renderBoardView() {
   const grid = document.getElementById("boardViewGrid");
 
   state.boards.forEach((b, i) => {
-    const card = document.createElement("button");
-    card.className = "board-card";
-    card.type = "button";
-    card.style.animationDelay = i * 35 + "ms";
-    card.dataset.id = b.id;
-
-    const totalCards = b.columns.reduce((s, c) => s + c.cards.length, 0);
-
-    card.innerHTML =
-      '<div class="board-card-body">' +
-      '<span class="board-card-name">' +
-      esc(b.name) +
-      "</span>" +
-      (totalCards > 0
-        ? '<span class="board-card-count">' +
-          totalCards +
-          (totalCards === 1 ? " card" : " cards") +
-          "</span>"
-        : '<span class="board-card-count board-card-empty">empty</span>') +
-      "</div>" +
-      '<button class="board-card-del" title="delete board">' +
-      ICON_X_TINY +
-      "</button>";
-
-    card.addEventListener("click", () => openBoard(b.id));
-
-    const del = card.querySelector(".board-card-del");
-    del.addEventListener("click", (e) => {
-      e.stopPropagation();
-      animateGridItems(grid, () => {
-        deleteBoard(b.id);
-        card.remove();
-      });
-    });
-
+    const card = createBoardCard(b, i, grid);
     grid.appendChild(card);
   });
 
@@ -664,37 +713,7 @@ function renderBoardView() {
   newCard.addEventListener("click", () => {
     const b = createBoard();
     const idx = state.boards.indexOf(b);
-    const card = document.createElement("button");
-    card.className = "board-card";
-    card.type = "button";
-    card.style.animationDelay = idx * 35 + "ms";
-    card.dataset.id = b.id;
-    const totalCards = b.columns.reduce((s, c) => s + c.cards.length, 0);
-    card.innerHTML =
-      '<div class="board-card-body">' +
-      '<span class="board-card-name">' +
-      esc(b.name) +
-      "</span>" +
-      (totalCards > 0
-        ? '<span class="board-card-count">' +
-          totalCards +
-          (totalCards === 1 ? " card" : " cards") +
-          "</span>"
-        : '<span class="board-card-count board-card-empty">empty</span>') +
-      "</div>" +
-      '<button class="board-card-del" title="delete board">' +
-      ICON_X_TINY +
-      "</button>";
-    card.addEventListener("click", () => openBoard(b.id));
-    const del = card.querySelector(".board-card-del");
-    del.addEventListener("click", (e) => {
-      e.stopPropagation();
-      animateGridItems(grid, () => {
-        deleteBoard(b.id);
-        card.remove();
-      });
-    });
-
+    const card = createBoardCard(b, idx, grid);
     animateGridItems(grid, () => grid.insertBefore(card, newCard));
   });
   grid.appendChild(newCard);

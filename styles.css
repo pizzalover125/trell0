@@ -350,6 +350,15 @@ body::after {
   text-overflow: ellipsis;
   white-space: nowrap;
   padding: 0 4px;
+  pointer-events: auto;
+}
+.board-card-name.editing {
+  outline: none;
+  cursor: text;
+  white-space: normal;
+  background: var(--bg);
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px var(--line);
 }
 
 .board-card-count {
@@ -484,19 +493,15 @@ body::after {
   position: absolute;
   inset: 0;
   display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  justify-content: center;
-  gap: 22px;
+  flex-direction: column;
   padding: 40px 40px 0;
-  overflow-y: auto;
-  overflow-x: hidden;
   opacity: 0;
   transform: scale(0.96);
   pointer-events: none;
   transition:
     opacity 0.4s var(--curve),
     transform 0.4s var(--curve);
+  overflow: hidden;
 }
 .board.visible {
   opacity: 1;
@@ -516,7 +521,7 @@ body::after {
   padding: 2px 10px;
   padding-bottom: 20px;
   flex: 0 0 auto;
-  cursor: default;
+  cursor: pointer;
   transition: opacity 0.2s var(--curve);
   border-radius: 8px;
 }
@@ -526,6 +531,18 @@ body::after {
 .board-title.editing {
   outline: none;
   cursor: text;
+}
+
+.board-columns {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  justify-content: center;
+  gap: 22px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .column {
@@ -735,18 +752,27 @@ body::after {
   align-items: center;
   justify-content: center;
   padding: 32px;
-  opacity: 0;
   pointer-events: none;
-  transition: opacity 0.4s var(--curve);
+  visibility: hidden;
+  transition: visibility 0.4s;
 }
 .editor-overlay.open {
-  opacity: 1;
   pointer-events: auto;
+  visibility: visible;
 }
 .editor-backdrop {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--bg) 65%, transparent);
+  background-color: transparent;
+  -webkit-backdrop-filter: blur(0px);
+  backdrop-filter: blur(0px);
+  transition:
+    background-color 0.4s var(--curve),
+    backdrop-filter 0.4s var(--curve),
+    -webkit-backdrop-filter 0.4s var(--curve);
+}
+.editor-overlay.open .editor-backdrop {
+  background-color: color-mix(in srgb, var(--bg) 65%, transparent);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
@@ -975,7 +1001,6 @@ body::after {
   opacity: 0.4;
   pointer-events: none;
   z-index: 10;
-  transform: translateY(15%);
   will-change: left, top;
   transition:
     left 80ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -1041,18 +1066,27 @@ body::after {
   align-items: flex-start;
   justify-content: center;
   padding: 13vh 24px 24px;
-  opacity: 0;
   pointer-events: none;
-  transition: opacity 0.3s var(--curve);
+  visibility: hidden;
+  transition: visibility 0.3s;
 }
 .palette-overlay.open {
-  opacity: 1;
   pointer-events: auto;
+  visibility: visible;
 }
 .palette-backdrop {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--bg) 58%, transparent);
+  background-color: transparent;
+  -webkit-backdrop-filter: blur(0px);
+  backdrop-filter: blur(0px);
+  transition:
+    background-color 0.3s var(--curve),
+    backdrop-filter 0.3s var(--curve),
+    -webkit-backdrop-filter 0.3s var(--curve);
+}
+.palette-overlay.open .palette-backdrop {
+  background-color: color-mix(in srgb, var(--bg) 58%, transparent);
   -webkit-backdrop-filter: blur(7px);
   backdrop-filter: blur(7px);
 }
@@ -1533,23 +1567,31 @@ body::after {
   }
 
   .board {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-    gap: 14px;
+    flex-direction: column;
     padding: 44px 16px 24px;
+    overflow-y: auto;
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x proximity;
-    justify-content: unset;
+  }
+  .board-columns {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+    flex: 0 0 auto;
+    min-height: auto;
+    overflow: visible;
   }
   .column {
-    flex: 0 0 80vw;
-    max-width: 320px;
-    height: 100%;
-    scroll-snap-align: start;
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: none;
+    height: auto;
+    max-height: none;
+    overflow: visible;
   }
   .cards {
-    flex: 1;
+    overflow: visible;
   }
   .card {
     padding: 16px 40px 16px 16px;
@@ -1643,11 +1685,18 @@ body::after {
 @media (max-width: 380px) {
   .board {
     padding: 40px 12px 20px;
-    gap: 12px;
+  }
+  .board-columns {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    width: 100%;
   }
   .column {
-    flex: 0 0 92vw;
-    min-width: 0;
+    flex: 0 0 auto;
+    width: 100%;
+    height: auto;
+    max-height: none;
   }
   .column-header {
     padding: 6px 4px 10px;
@@ -1660,6 +1709,8 @@ body::after {
 @media (min-width: 641px) and (max-width: 1024px) {
   .board {
     padding: 40px 24px 0;
+  }
+  .board-columns {
     gap: 18px;
   }
   .column {
