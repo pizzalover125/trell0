@@ -477,7 +477,6 @@ body::after {
   width: 18px;
   height: 18px;
 }
-
 @keyframes backBtnEnter {
   from {
     opacity: 0;

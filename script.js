@@ -48,6 +48,8 @@ const ICON_CHEVRON_RIGHT =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
 const ICON_BOARD =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>';
+const ICON_SHARE =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>';
 
 document.getElementById("closeBtn").innerHTML = ICON_X_LG;
 const COLUMNS = [
@@ -245,6 +247,141 @@ function importBoard(file) {
   };
   reader.readAsText(file);
   fileInput.value = "";
+}
+
+function utf8ToBase64(str) {
+  return btoa(
+    encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => {
+      return String.fromCharCode(parseInt(p1, 16));
+    }),
+  );
+}
+
+function base64ToUtf8(str) {
+  return decodeURIComponent(
+    Array.prototype.map
+      .call(atob(str), (c) => {
+        return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+      })
+      .join(""),
+  );
+}
+
+function showNotification(message, duration = 3000) {
+  const chip = document.createElement("div");
+  chip.className = "timer-chip";
+
+  const indicator = document.createElement("div");
+  indicator.className = "timer-indicator";
+  const dot = document.createElement("div");
+  dot.className = "timer-dot";
+  dot.style.background = "#FFB3B3";
+  indicator.appendChild(dot);
+
+  const main = document.createElement("div");
+  main.className = "timer-main";
+  const text = document.createElement("div");
+  text.className = "timer-time";
+  text.style.fontSize = "13px";
+  text.style.fontWeight = "400";
+  text.textContent = message;
+  main.appendChild(text);
+
+  chip.appendChild(indicator);
+  chip.appendChild(main);
+  timerStack.appendChild(chip);
+
+  setTimeout(() => {
+    chip.classList.add("removing");
+    chip.addEventListener("animationend", () => chip.remove(), { once: true });
+  }, duration);
+}
+
+function shareBoard() {
+  const board = activeBoard();
+  if (!board) {
+    showNotification("No active board to share.");
+    return;
+  }
+  const view = document.getElementById("boardView");
+  if (view && !view.classList.contains("hidden")) {
+    showNotification("Open a board first to share it.");
+    return;
+  }
+
+  syncStateFromDOM();
+  const boardData = {
+    name: board.name,
+    columns: board.columns,
+  };
+  try {
+    const jsonStr = JSON.stringify(boardData);
+    const base64 = utf8ToBase64(jsonStr);
+    const shareUrl =
+      window.location.origin + window.location.pathname + "#share=" + base64;
+
+    navigator.clipboard
+      .writeText(shareUrl)
+      .then(() => {
+        showNotification("Shareable link copied to clipboard!");
+      })
+      .catch(() => {
+        const input = document.createElement("input");
+        input.value = shareUrl;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        document.body.removeChild(input);
+        showNotification("Shareable link copied to clipboard!");
+      });
+  } catch (e) {
+    showNotification("Failed to generate share link.");
+    console.error(e);
+  }
+}
+
+function checkShareLink() {
+  const hash = window.location.hash;
+  if (hash.startsWith("#share=")) {
+    const base64 = hash.substring(7);
+    try {
+      const jsonStr = base64ToUtf8(base64);
+      const boardData = JSON.parse(jsonStr);
+
+      if (
+        boardData &&
+        typeof boardData === "object" &&
+        boardData.name &&
+        Array.isArray(boardData.columns)
+      ) {
+        const newBoard = {
+          id: generateBoardId(),
+          name: boardData.name + " (Shared)",
+          columns: validateColumns(boardData.columns),
+        };
+
+        state.boards.push(newBoard);
+        state.activeBoardId = newBoard.id;
+        saveState();
+
+        if (history.replaceState) {
+          history.replaceState(null, "", window.location.pathname);
+        } else {
+          window.location.hash = "";
+        }
+
+        renderBoardView();
+        openBoard(newBoard.id);
+
+        setTimeout(() => {
+          showNotification("Imported shared board: " + boardData.name);
+        }, 600);
+      }
+    } catch (e) {
+      console.error("Failed to parse shared board data:", e);
+      showNotification("Failed to import shared board.");
+    }
+  }
 }
 
 function syncStateFromDOM() {
@@ -1749,6 +1886,15 @@ function commandList() {
         setTimeout(() => fileInput.click(), 60);
       },
     },
+    {
+      icon: ICON_SHARE,
+      label: "share board",
+      keywords: "share link URL copy board send collab export",
+      run: () => {
+        shareBoard();
+        closePalette();
+      },
+    },
   ];
 }
 
@@ -2401,3 +2547,4 @@ document.addEventListener(
 renderBoardView();
 renderColorPicker();
 initTimers();
+checkShareLink();

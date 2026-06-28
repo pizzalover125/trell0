@@ -10,4 +10,9 @@ every trello board on the market is sluggish and built for corporate teams. i wa
 
 ## features
 
-## planned features
+- **zero-install static page**: runs entirely in the browser using `localStorage`.
+- **multiple boards**: create, delete, and customize multiple project boards.
+- **command palette**: launch actions, start timers, and change themes via `cmd+shift+p`.
+- **focus timers**: built-in stopwatches, standard timers, and Pomodoro trackers.
+- **link sharing**: share any board with others by copying a lightweight, URL-safe shared link.
+- **undo/redo**: seamless layout recovery with global keyboard shortcuts (`cmd+z` and `cmd+shift+z`).
