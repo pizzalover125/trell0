@@ -1,4 +1,10 @@
-import { ICON_X, ICON_PLUS, ICON_X_TINY, ICON_CHEVRON_LEFT } from "./icons.js";
+import {
+  ICON_X,
+  ICON_PLUS,
+  ICON_X_TINY,
+  ICON_CHEVRON_LEFT,
+  ICON_CHECKBOX,
+} from "./icons.js";
 import {
   getState,
   saveState,
@@ -69,6 +75,7 @@ export function syncStateFromDOM() {
         body: card.dataset.body || "",
         color: card.dataset.color || "",
         tags: JSON.parse(card.dataset.tags || "[]"),
+        done: card.dataset.done === "true",
       }),
     ),
   }));
@@ -116,11 +123,12 @@ function validateColumns(cols) {
     cards: Array.isArray(col.cards)
       ? col.cards.map((item) => {
           if (typeof item === "string")
-            return { body: item, color: "", tags: [] };
+            return { body: item, color: "", tags: [], done: false };
           return {
             body: item?.body || "",
             color: item?.color || "",
             tags: Array.isArray(item?.tags) ? item.tags : [],
+            done: item?.done === true,
           };
         })
       : [],
@@ -224,6 +232,7 @@ export function makeCard(input) {
       : Array.isArray(input?.tags)
         ? input.tags
         : [];
+  const done = typeof input === "string" ? false : input?.done === true;
   const card = document.createElement("div");
   card.className = "card";
   card.draggable = true;
@@ -231,10 +240,27 @@ export function makeCard(input) {
   card.dataset.body = body || "";
   card.dataset.color = color;
   card.dataset.tags = JSON.stringify(tags);
+  card.dataset.done = done ? "true" : "false";
+
+  const checkbox = document.createElement("button");
+  checkbox.className = "card-checkbox";
+  checkbox.type = "button";
+  checkbox.innerHTML = ICON_CHECKBOX;
+  card.appendChild(checkbox);
+
+  const bodyWrap = document.createElement("div");
+  bodyWrap.className = "card-body";
+  card.appendChild(bodyWrap);
 
   const title = document.createElement("span");
   title.className = "card-title";
-  card.appendChild(title);
+  const titleText = document.createElement("span");
+  titleText.className = "card-text";
+  const strike = document.createElement("span");
+  strike.className = "card-strike";
+  title.appendChild(titleText);
+  title.appendChild(strike);
+  bodyWrap.appendChild(title);
 
   const x = document.createElement("button");
   x.className = "card-x";
@@ -243,7 +269,21 @@ export function makeCard(input) {
 
   refreshCard(card);
 
-  card.addEventListener("click", () => openEditor(card));
+  checkbox.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const isDone = card.dataset.done !== "true";
+    card.dataset.done = isDone ? "true" : "false";
+    refreshCard(card);
+    pushSnapshot();
+    syncStateFromDOM();
+    saveState();
+  });
+
+  card.addEventListener("click", (e) => {
+    if (e.target.closest(".card-checkbox")) return;
+    if (e.target.closest(".card-x")) return;
+    openEditor(card);
+  });
   x.addEventListener("click", (e) => {
     e.stopPropagation();
     const add = card.closest(".column").querySelector(".add-card");
@@ -299,14 +339,20 @@ export function makeCard(input) {
 export function refreshCard(card) {
   const body = card.dataset.body;
   const clean = titleFromBody(body);
-  card.querySelector(".card-title").textContent = clean;
+  const titleEl = card.querySelector(".card-title");
+  if (titleEl) {
+    const textEl = titleEl.querySelector(".card-text");
+    if (textEl) textEl.textContent = clean;
+  }
   card.classList.toggle("empty", !getCleanText(body).trim());
+  card.classList.toggle("done", card.dataset.done === "true");
 
+  const bodyWrap = card.querySelector(".card-body") || card;
   let tagsContainer = card.querySelector(".card-tags");
   if (!tagsContainer) {
     tagsContainer = document.createElement("div");
     tagsContainer.className = "card-tags";
-    card.insertBefore(tagsContainer, card.querySelector(".card-title"));
+    bodyWrap.insertBefore(tagsContainer, card.querySelector(".card-title"));
   }
   const tags = JSON.parse(card.dataset.tags || "[]");
   tagsContainer.innerHTML = tags
@@ -414,12 +460,17 @@ export function buildBoard() {
     add.innerHTML = ICON_PLUS + "<span>add card</span>";
     add.addEventListener("click", () => {
       const addTop = add.getBoundingClientRect().top;
-      const c = makeCard({ body: "", color: "", tags: [] });
+      const c = makeCard({ body: "", color: "", tags: [], done: false });
       c.classList.add("card-enter");
       cards.appendChild(c);
 
       pushSnapshot();
-      board.columns[colIndex].cards.push({ body: "", color: "", tags: [] });
+      board.columns[colIndex].cards.push({
+        body: "",
+        color: "",
+        tags: [],
+        done: false,
+      });
       saveState();
       animateAddButton(add, addTop);
 
@@ -489,12 +540,17 @@ export function addCardToColumn(colIndex, body) {
   const add = column.querySelector(".add-card");
   const addTop = add.getBoundingClientRect().top;
 
-  const c = makeCard({ body: body || "", color: "", tags: [] });
+  const c = makeCard({ body: body || "", color: "", tags: [], done: false });
   c.classList.add("card-enter");
   cards.appendChild(c);
 
   pushSnapshot();
-  board.columns[colIndex].cards.push({ body: body || "", color: "", tags: [] });
+  board.columns[colIndex].cards.push({
+    body: body || "",
+    color: "",
+    tags: [],
+    done: false,
+  });
   saveState();
   animateAddButton(add, addTop);
 
@@ -706,7 +762,11 @@ document.addEventListener(
 
     if (!touchDragged) {
       const card = touchStartTarget.closest(".card");
-      if (card && !touchStartTarget.closest(".card-x")) {
+      if (
+        card &&
+        !touchStartTarget.closest(".card-x") &&
+        !touchStartTarget.closest(".card-checkbox")
+      ) {
         touchDragged = card;
         card.classList.add("dragging");
       } else {

@@ -56,11 +56,12 @@ function validateColumns(cols) {
     cards: Array.isArray(col.cards)
       ? col.cards.map((item) => {
           if (typeof item === "string")
-            return { body: item, color: "", tags: [] };
+            return { body: item, color: "", tags: [], done: false };
           return {
             body: item?.body || "",
             color: item?.color || "",
             tags: Array.isArray(item?.tags) ? item.tags : [],
+            done: item?.done === true,
           };
         })
       : [],
@@ -193,7 +194,12 @@ export function addCardToBoard(colIndex, body) {
   const board = activeBoard();
   if (!board || !board.columns[colIndex]) return;
   pushSnapshot();
-  board.columns[colIndex].cards.push({ body: body || "", color: "", tags: [] });
+  board.columns[colIndex].cards.push({
+    body: body || "",
+    color: "",
+    tags: [],
+    done: false,
+  });
   saveState();
 }
 
@@ -215,4 +221,14 @@ function base64ToUtf8(str) {
   );
 }
 
-export { CARD_COLORS, COLUMNS, getCleanText, esc, titleFromBody, generateBoardId, utf8ToBase64, base64ToUtf8, STORAGE_KEY };
+export {
+  CARD_COLORS,
+  COLUMNS,
+  getCleanText,
+  esc,
+  titleFromBody,
+  generateBoardId,
+  utf8ToBase64,
+  base64ToUtf8,
+  STORAGE_KEY,
+};
