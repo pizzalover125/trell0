@@ -196,7 +196,7 @@ export function openPalette() {
   renderLead();
   setPlaceholder();
   renderBody();
-  requestAnimationFrame(() => paletteInput.focus());
+  paletteInput.focus();
 }
 
 export function closePalette() {

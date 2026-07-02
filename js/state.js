@@ -56,12 +56,19 @@ function validateColumns(cols) {
     cards: Array.isArray(col.cards)
       ? col.cards.map((item) => {
           if (typeof item === "string")
-            return { body: item, color: "", tags: [], done: false };
+            return {
+              body: item,
+              color: "",
+              tags: [],
+              done: false,
+              subtasks: [],
+            };
           return {
             body: item?.body || "",
             color: item?.color || "",
             tags: Array.isArray(item?.tags) ? item.tags : [],
             done: item?.done === true,
+            subtasks: Array.isArray(item?.subtasks) ? item.subtasks : [],
           };
         })
       : [],
@@ -199,6 +206,7 @@ export function addCardToBoard(colIndex, body) {
     color: "",
     tags: [],
     done: false,
+    subtasks: [],
   });
   saveState();
 }

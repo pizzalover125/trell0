@@ -76,6 +76,7 @@ export function syncStateFromDOM() {
         color: card.dataset.color || "",
         tags: JSON.parse(card.dataset.tags || "[]"),
         done: card.dataset.done === "true",
+        subtasks: JSON.parse(card.dataset.subtasks || "[]"),
       }),
     ),
   }));
@@ -123,12 +124,13 @@ function validateColumns(cols) {
     cards: Array.isArray(col.cards)
       ? col.cards.map((item) => {
           if (typeof item === "string")
-            return { body: item, color: "", tags: [], done: false };
+            return { body: item, color: "", tags: [], done: false, subtasks: [] };
           return {
             body: item?.body || "",
             color: item?.color || "",
             tags: Array.isArray(item?.tags) ? item.tags : [],
             done: item?.done === true,
+            subtasks: Array.isArray(item?.subtasks) ? item.subtasks : [],
           };
         })
       : [],
@@ -233,6 +235,12 @@ export function makeCard(input) {
         ? input.tags
         : [];
   const done = typeof input === "string" ? false : input?.done === true;
+  const subtasks =
+    typeof input === "string"
+      ? []
+      : Array.isArray(input?.subtasks)
+        ? input.subtasks
+        : [];
   const card = document.createElement("div");
   card.className = "card";
   card.draggable = true;
@@ -241,6 +249,7 @@ export function makeCard(input) {
   card.dataset.color = color;
   card.dataset.tags = JSON.stringify(tags);
   card.dataset.done = done ? "true" : "false";
+  card.dataset.subtasks = JSON.stringify(subtasks);
 
   const checkbox = document.createElement("button");
   checkbox.className = "card-checkbox";
@@ -367,6 +376,20 @@ export function refreshCard(card) {
     card.style.removeProperty("--card-bg");
     card.style.removeProperty("--card-fg");
   }
+
+  const subtasks = JSON.parse(card.dataset.subtasks || "[]");
+  let subEl = card.querySelector(".card-subtasks");
+  if (subtasks.length) {
+    const done = subtasks.filter((s) => s.done).length;
+    if (!subEl) {
+      subEl = document.createElement("div");
+      subEl.className = "card-subtasks";
+      (card.querySelector(".card-body") || card).appendChild(subEl);
+    }
+    subEl.textContent = done + "/" + subtasks.length + " done";
+  } else {
+    if (subEl) subEl.remove();
+  }
 }
 
 export function buildBoard() {
@@ -470,6 +493,7 @@ export function buildBoard() {
         color: "",
         tags: [],
         done: false,
+        subtasks: [],
       });
       saveState();
       animateAddButton(add, addTop);
@@ -484,16 +508,30 @@ export function buildBoard() {
       e.preventDefault();
       cards.classList.add("drag-over");
       if (!dragged) return;
+      cards.querySelectorAll(".subtask-hover").forEach((c) => c.classList.remove("subtask-hover"));
+      const targetCard = e.target.closest(".card");
+      if (targetCard && targetCard !== dragged) {
+        targetCard.classList.add("subtask-hover");
+      }
       const after = afterElement(cards, e.clientY);
       if (after == null) cards.appendChild(dragged);
       else cards.insertBefore(dragged, after);
     });
     cards.addEventListener("dragleave", (e) => {
-      if (!cards.contains(e.relatedTarget)) cards.classList.remove("drag-over");
+      if (!cards.contains(e.relatedTarget)) {
+        cards.classList.remove("drag-over");
+        cards.querySelectorAll(".subtask-hover").forEach((c) => c.classList.remove("subtask-hover"));
+      }
     });
     cards.addEventListener("drop", (e) => {
       e.preventDefault();
       cards.classList.remove("drag-over");
+      cards.querySelectorAll(".subtask-hover").forEach((c) => c.classList.remove("subtask-hover"));
+      const targetCard = e.target.closest(".card");
+      if (targetCard && dragged && targetCard !== dragged) {
+        makeSubtask(dragged, targetCard);
+        return;
+      }
       pushSnapshot();
       syncStateFromDOM();
       saveState();
@@ -531,6 +569,37 @@ function animateAddButton(add, fromTop) {
   );
 }
 
+function makeSubtask(draggedEl, targetEl) {
+  if (activeCard) closeEditor();
+  pushSnapshot();
+  const board = activeBoard();
+  if (!board) return;
+
+  const sourceColEl = draggedEl.closest(".column");
+  const sourceColIdx = [...sourceColEl.parentElement.children].indexOf(sourceColEl);
+  const sourceCardsEl = sourceColEl.querySelector(".cards");
+  const sourceCardIdx = [...sourceCardsEl.children].indexOf(draggedEl);
+
+  const targetColEl = targetEl.closest(".column");
+  const targetColIdx = [...targetColEl.parentElement.children].indexOf(targetColEl);
+  const targetCardsEl = targetColEl.querySelector(".cards");
+  let targetCardIdx = [...targetCardsEl.children].indexOf(targetEl);
+
+  const cardData = board.columns[sourceColIdx].cards[sourceCardIdx];
+  board.columns[sourceColIdx].cards.splice(sourceCardIdx, 1);
+
+  if (sourceColIdx === targetColIdx && sourceCardIdx < targetCardIdx) {
+    targetCardIdx--;
+  }
+
+  const targetCard = board.columns[targetColIdx].cards[targetCardIdx];
+  if (!targetCard.subtasks) targetCard.subtasks = [];
+  targetCard.subtasks.push({ body: cardData.body, done: false });
+
+  saveState();
+  buildBoard();
+}
+
 export function addCardToColumn(colIndex, body) {
   const columns = boardEl.querySelectorAll(".column");
   const column = columns[colIndex];
@@ -550,6 +619,7 @@ export function addCardToColumn(colIndex, body) {
     color: "",
     tags: [],
     done: false,
+    subtasks: [],
   });
   saveState();
   animateAddButton(add, addTop);
@@ -685,8 +755,34 @@ export function renderBoardView() {
   grid.appendChild(newCard);
 }
 
+function showOnboarding() {
+  if (localStorage.getItem("trell0-onboarded")) return;
+
+  const isMac = /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+  const mod = isMac ? "\u2318" : "Ctrl";
+
+  const hint = document.createElement("div");
+  hint.className = "onboarding-hint";
+  hint.innerHTML =
+    "press <kbd>" + mod + "</kbd><kbd>Shift</kbd><kbd>P</kbd> to open commands";
+
+  document.getElementById("appLayout").appendChild(hint);
+
+  const dismiss = () => {
+    if (hint.classList.contains("dismissing")) return;
+    hint.classList.add("dismissing");
+    localStorage.setItem("trell0-onboarded", "1");
+    setTimeout(() => hint.remove(), 400);
+  };
+
+  hint.addEventListener("click", dismiss);
+  document.addEventListener("keydown", dismiss, { once: true });
+  setTimeout(dismiss, 6000);
+}
+
 export function openBoard(id) {
   if (animating) return;
+  showOnboarding();
   const board = activeBoard();
   if (board && board.id === id) {
     buildBoard();
@@ -783,6 +879,11 @@ document.addEventListener(
       if (!el) return;
       const cards = el.closest(".cards");
       if (!cards) return;
+      document.querySelectorAll(".subtask-hover").forEach((c) => c.classList.remove("subtask-hover"));
+      const targetCard = el.closest(".card");
+      if (targetCard && targetCard !== touchDragged) {
+        targetCard.classList.add("subtask-hover");
+      }
       cards.classList.add("drag-over");
       const after = afterElement(cards, touch.clientY);
       if (after == null) cards.appendChild(touchDragged);
@@ -792,12 +893,31 @@ document.addEventListener(
   { passive: false },
 );
 
-document.addEventListener("touchend", () => {
+document.addEventListener("touchend", (e) => {
   if (touchDragged) {
     touchDragged.classList.remove("dragging");
     document
       .querySelectorAll(".cards.drag-over")
       .forEach((c) => c.classList.remove("drag-over"));
+    document
+      .querySelectorAll(".subtask-hover")
+      .forEach((c) => c.classList.remove("subtask-hover"));
+
+    const touch = e.changedTouches[0];
+    if (touch) {
+      touchDragged.style.pointerEvents = "none";
+      const el = document.elementFromPoint(touch.clientX, touch.clientY);
+      touchDragged.style.pointerEvents = "";
+      const targetCard = el && el.closest(".card");
+      if (targetCard && targetCard !== touchDragged) {
+        makeSubtask(touchDragged, targetCard);
+        touchDragged = null;
+        touchStartPos = null;
+        touchStartTarget = null;
+        return;
+      }
+    }
+
     pushSnapshot();
     syncStateFromDOM();
     saveState();

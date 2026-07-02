@@ -1,4 +1,4 @@
-import { ICON_X_LG, ICON_PLUS, ICON_X_TINY } from "./icons.js";
+import { ICON_X_LG, ICON_PLUS, ICON_X_TINY, ICON_CHECKBOX } from "./icons.js";
 import {
   pushSnapshot,
   saveState,
@@ -16,6 +16,7 @@ const statusBar = document.getElementById("status");
 const closeBtn = document.getElementById("closeBtn");
 const cardColorPicker = document.getElementById("cardColorPicker");
 const editorTagsArea = document.getElementById("editorTagsArea");
+const editorSubtasks = document.getElementById("editorSubtasks");
 
 closeBtn.innerHTML = ICON_X_LG;
 
@@ -106,6 +107,135 @@ function removeTag(card, tag) {
   renderEditorTags(card);
   syncStateFromDOM();
   saveState();
+}
+
+function subtaskSync() {
+  if (!activeCard) return;
+  const items = [...editorSubtasks.querySelectorAll(".subtask-item")];
+  const subtasks = items.map((item) => ({
+    body: item.querySelector(".subtask-text")?.textContent || "",
+    done: item.classList.contains("subtask-done"),
+  }));
+  activeCard.dataset.subtasks = JSON.stringify(subtasks);
+}
+
+function addSubtask() {
+  if (!activeCard) return;
+  const input = editorSubtasks.querySelector(".subtask-input");
+  const val = input?.value.trim();
+  if (!val) return;
+  pushSnapshot();
+  const subtasks = JSON.parse(activeCard.dataset.subtasks || "[]");
+  subtasks.push({ body: val, done: false });
+  activeCard.dataset.subtasks = JSON.stringify(subtasks);
+  refreshCard(activeCard);
+  syncStateFromDOM();
+  saveState();
+  input.value = "";
+  renderEditorSubtasks(activeCard);
+  const newInput = editorSubtasks.querySelector(".subtask-input");
+  if (newInput) newInput.focus();
+}
+
+function toggleSubtask(index) {
+  if (!activeCard) return;
+  pushSnapshot();
+  const subtasks = JSON.parse(activeCard.dataset.subtasks || "[]");
+  if (subtasks[index]) {
+    subtasks[index].done = !subtasks[index].done;
+    activeCard.dataset.subtasks = JSON.stringify(subtasks);
+    refreshCard(activeCard);
+    syncStateFromDOM();
+    saveState();
+    renderEditorSubtasks(activeCard);
+  }
+}
+
+function removeSubtask(index) {
+  if (!activeCard) return;
+  pushSnapshot();
+  let subtasks = JSON.parse(activeCard.dataset.subtasks || "[]");
+  subtasks = subtasks.filter((_, i) => i !== index);
+  activeCard.dataset.subtasks = JSON.stringify(subtasks);
+  refreshCard(activeCard);
+  syncStateFromDOM();
+  saveState();
+  renderEditorSubtasks(activeCard);
+}
+
+export function renderEditorSubtasks(card) {
+  if (!editorSubtasks) return;
+  const subtasks = JSON.parse(card.dataset.subtasks || "[]");
+  editorSubtasks.innerHTML = "";
+
+  if (!subtasks.length) {
+    editorSubtasks.style.display = "none";
+    const row = document.createElement("div");
+    row.className = "subtask-add-row";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "subtask-input";
+    input.placeholder = "add subtask…";
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        addSubtask();
+      }
+      if (e.key === "Escape") {
+        e.target.blur();
+      }
+    });
+    row.appendChild(input);
+    editorSubtasks.appendChild(row);
+    return;
+  }
+
+  editorSubtasks.style.display = "block";
+
+  subtasks.forEach((st, i) => {
+    const item = document.createElement("div");
+    item.className = "subtask-item" + (st.done ? " subtask-done" : "");
+
+    const cb = document.createElement("button");
+    cb.className = "subtask-cb";
+    cb.type = "button";
+    cb.innerHTML = ICON_CHECKBOX;
+    cb.addEventListener("click", () => toggleSubtask(i));
+
+    const text = document.createElement("span");
+    text.className = "subtask-text";
+    text.textContent = st.body;
+
+    const del = document.createElement("button");
+    del.className = "subtask-del";
+    del.type = "button";
+    del.innerHTML = ICON_X_TINY;
+    del.title = "remove subtask";
+    del.addEventListener("click", () => removeSubtask(i));
+
+    item.appendChild(cb);
+    item.appendChild(text);
+    item.appendChild(del);
+    editorSubtasks.appendChild(item);
+  });
+
+  const row = document.createElement("div");
+  row.className = "subtask-add-row";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "subtask-input";
+  input.placeholder = "add subtask…";
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addSubtask();
+    }
+    if (e.key === "Escape") {
+      e.target.blur();
+    }
+  });
+  row.appendChild(input);
+  editorSubtasks.appendChild(row);
 }
 
 function renderColorPicker() {
@@ -258,6 +388,7 @@ export function openEditor(card) {
   updateWordCount();
   syncColorPickerState();
   renderEditorTags(card);
+  renderEditorSubtasks(card);
 
   overlay.classList.add("open");
   requestAnimationFrame(() => {
@@ -283,6 +414,7 @@ export function closeEditor() {
   if (syncTimeout) clearTimeout(syncTimeout);
   const card = activeCard;
   card.dataset.body = editor.innerHTML;
+  subtaskSync();
   refreshCard(card);
   pushSnapshot();
   syncStateFromDOM();
