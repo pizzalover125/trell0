@@ -4,6 +4,7 @@ import {
   ICON_X_TINY,
   ICON_CHEVRON_LEFT,
   ICON_CHECKBOX,
+  ICON_X_LG,
 } from "./icons.js";
 import {
   getState,
@@ -19,6 +20,8 @@ import {
   renameBoard,
   deleteBoard,
   switchBoard,
+  setBoardEmoji,
+  setBoardColor,
 } from "./state.js";
 import { activeCard, closeEditor, openEditor } from "./editor.js";
 import { timerStack } from "./timers.js";
@@ -405,6 +408,38 @@ export function buildBoard() {
   const board = activeBoard();
   if (!board) return;
 
+  boardEl.addEventListener("dblclick", (e) => {
+    if (
+      e.target === boardEl ||
+      e.target.classList.contains("board-title-area") ||
+      e.target.classList.contains("board-columns")
+    ) {
+      e.preventDefault();
+      openBoardEditor(board.id);
+    }
+  });
+
+  let lastBoardTap = 0;
+  boardEl.addEventListener(
+    "touchstart",
+    (e) => {
+      if (
+        e.target === boardEl ||
+        e.target.classList.contains("board-title-area") ||
+        e.target.classList.contains("board-columns")
+      ) {
+        const now = Date.now();
+        const timespan = now - lastBoardTap;
+        if (timespan < 300 && timespan > 0) {
+          e.preventDefault();
+          openBoardEditor(board.id);
+        }
+        lastBoardTap = now;
+      }
+    },
+    { passive: false },
+  );
+
   const titleArea = document.createElement("div");
   titleArea.className = "board-title-area";
 
@@ -683,6 +718,11 @@ function createBoardCard(b, i, grid) {
   card.style.animationDelay = i * 35 + "ms";
   card.dataset.id = b.id;
 
+  if (b.color) {
+    card.style.background = b.color;
+    card.classList.add("has-custom-color");
+  }
+
   const totalCards = b.columns.reduce((s, c) => s + c.cards.length, 0);
 
   card.innerHTML =
@@ -704,7 +744,63 @@ function createBoardCard(b, i, grid) {
     ICON_X_TINY +
     "</button>";
 
-  card.addEventListener("click", () => openBoard(b.id));
+  let clickTimeout = null;
+  card.addEventListener("click", (e) => {
+    if (
+      e.target.closest(".board-card-del") ||
+      e.target.closest(".board-card-name")
+    )
+      return;
+    if (clickTimeout) {
+      clearTimeout(clickTimeout);
+      clickTimeout = null;
+      return;
+    }
+    clickTimeout = setTimeout(() => {
+      openBoard(b.id);
+      clickTimeout = null;
+    }, 220);
+  });
+
+  card.addEventListener("dblclick", (e) => {
+    if (
+      e.target.closest(".board-card-del") ||
+      e.target.closest(".board-card-name")
+    )
+      return;
+    e.stopPropagation();
+    e.preventDefault();
+    if (clickTimeout) {
+      clearTimeout(clickTimeout);
+      clickTimeout = null;
+    }
+    openBoardEditor(b.id);
+  });
+
+  let lastTap = 0;
+  card.addEventListener(
+    "touchstart",
+    (e) => {
+      if (
+        e.target.closest(".board-card-del") ||
+        e.target.closest(".board-card-name")
+      )
+        return;
+      const now = Date.now();
+      const timespan = now - lastTap;
+      if (timespan < 300 && timespan > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (clickTimeout) {
+          clearTimeout(clickTimeout);
+          clickTimeout = null;
+        }
+        openBoardEditor(b.id);
+      }
+      lastTap = now;
+    },
+    { passive: false },
+  );
 
   const nameEl = card.querySelector(".board-card-name");
   nameEl.addEventListener("click", (e) => {
@@ -752,6 +848,27 @@ function createBoardCard(b, i, grid) {
   return card;
 }
 
+function showBoardTip() {
+  if (localStorage.getItem("trell0-board-tip")) return;
+
+  const hint = document.createElement("div");
+  hint.className = "onboarding-hint";
+  hint.textContent = "double click to edit board details";
+
+  document.getElementById("appLayout").appendChild(hint);
+
+  const dismiss = () => {
+    if (hint.classList.contains("dismissing")) return;
+    hint.classList.add("dismissing");
+    localStorage.setItem("trell0-board-tip", "1");
+    setTimeout(() => hint.remove(), 400);
+  };
+
+  hint.addEventListener("click", dismiss);
+  document.addEventListener("keydown", dismiss, { once: true });
+  setTimeout(dismiss, 6000);
+}
+
 export function renderBoardView() {
   const view = document.getElementById("boardView");
   if (!view) return;
@@ -784,6 +901,8 @@ export function renderBoardView() {
     animateGridItems(grid, () => grid.insertBefore(card, newCard));
   });
   grid.appendChild(newCard);
+
+  showBoardTip();
 }
 
 function showOnboarding() {
@@ -829,6 +948,7 @@ export function openBoard(id) {
   const _boardEl = document.getElementById("board");
 
   switchBoard(id);
+  buildBoard();
 
   view.classList.add("hidden");
   _boardEl.classList.add("visible");
@@ -866,6 +986,7 @@ export function closeBoardView() {
 
   setTimeout(() => {
     animating = false;
+    _boardEl.style.background = "";
   }, 550);
 }
 
@@ -970,4 +1091,280 @@ document.addEventListener("touchcancel", () => {
     .forEach((c) => c.classList.remove("drag-over"));
   touchStartPos = null;
   touchStartTarget = null;
+});
+
+const PRESET_EMOJIS = [
+  "📋",
+  "📝",
+  "✅",
+  "📌",
+  "📎",
+  "📂",
+  "📊",
+  "🚀",
+  "🎯",
+  "⚡",
+  "💡",
+  "🔥",
+  "🌟",
+  "🎨",
+  "🛠️",
+  "📅",
+  "💻",
+  "👥",
+  "🙌",
+  "🤝",
+  "🎉",
+  "❤️",
+  "⭐",
+  "🌈",
+];
+
+const BOARD_COLORS = [
+  { name: "default", value: "" },
+  {
+    name: "sunset glow",
+    value: "linear-gradient(135deg, #FF9A8B 0%, #FF6A88 55%, #FF99AC 100%)",
+  },
+  {
+    name: "ocean wave",
+    value: "linear-gradient(135deg, #4A00E0 0%, #8E2DE2 100%)",
+  },
+  {
+    name: "emerald forest",
+    value: "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
+  },
+  {
+    name: "midnight sky",
+    value: "linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)",
+  },
+  {
+    name: "lavender dream",
+    value: "linear-gradient(135deg, #eecda3 0%, #ef629f 100%)",
+  },
+  {
+    name: "sweet peach",
+    value: "linear-gradient(135deg, #FFD1FF 0%, #FEE140 100%)",
+  },
+  {
+    name: "glass water",
+    value: "linear-gradient(135deg, #85FFBD 0%, #FFFB7D 100%)",
+  },
+  {
+    name: "sakura",
+    value: "linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%)",
+  },
+  {
+    name: "carbon",
+    value: "linear-gradient(135deg, #434343 0%, #000000 100%)",
+  },
+];
+
+const boardEditorOverlay = document.getElementById("boardEditorOverlay");
+const boardEditorBackdrop = document.getElementById("boardEditorBackdrop");
+const boardEditorCloseBtn = document.getElementById("boardEditorCloseBtn");
+const boardEditorNameInput = document.getElementById("boardEditorNameInput");
+const boardEditorCurrentEmoji = document.getElementById(
+  "boardEditorCurrentEmoji",
+);
+const boardEditorClearEmojiBtn = document.getElementById(
+  "boardEditorClearEmojiBtn",
+);
+if (boardEditorClearEmojiBtn) boardEditorClearEmojiBtn.textContent = "✕";
+const boardEditorEmojiGrid = document.getElementById("boardEditorEmojiGrid");
+const boardEditorColorGrid = document.getElementById("boardEditorColorGrid");
+
+if (boardEditorCloseBtn) {
+  boardEditorCloseBtn.innerHTML = ICON_X_LG;
+}
+
+let editingBoardId = null;
+
+export function openBoardEditor(boardId) {
+  const _state = getState();
+  const board = _state.boards.find((b) => b.id === boardId);
+  if (!board) return;
+
+  editingBoardId = boardId;
+  boardEditorNameInput.value = board.name;
+
+  updateEditorCurrentEmoji(board.emoji);
+  updateColorPickerSelection(board.color);
+
+  if (activeCard) closeEditor();
+
+  boardEditorOverlay.classList.add("open");
+
+  requestAnimationFrame(() => {
+    boardEditorNameInput.focus();
+    boardEditorNameInput.select();
+  });
+}
+
+export function closeBoardEditor() {
+  if (!boardEditorOverlay.classList.contains("open")) return;
+  boardEditorOverlay.classList.remove("open");
+  editingBoardId = null;
+}
+
+function updateEditorCurrentEmoji(emoji) {
+  if (emoji) {
+    boardEditorCurrentEmoji.textContent = emoji;
+    boardEditorCurrentEmoji.style.display = "inline-flex";
+    boardEditorClearEmojiBtn.style.display = "inline-flex";
+  } else {
+    boardEditorCurrentEmoji.textContent = "📋";
+    boardEditorClearEmojiBtn.style.display = "none";
+  }
+}
+
+function updateColorPickerSelection(selectedColor) {
+  const items = boardEditorColorGrid.querySelectorAll(
+    ".board-editor-color-item",
+  );
+  items.forEach((item) => {
+    if (item.dataset.value === selectedColor) {
+      item.classList.add("selected");
+    } else {
+      item.classList.remove("selected");
+    }
+  });
+}
+
+PRESET_EMOJIS.forEach((emoji) => {
+  const item = document.createElement("button");
+  item.type = "button";
+  item.className = "board-editor-emoji-item";
+  item.textContent = emoji;
+  item.title = "select emoji";
+  item.addEventListener("click", () => {
+    if (!editingBoardId) return;
+    setBoardEmoji(editingBoardId, emoji);
+    updateEditorCurrentEmoji(emoji);
+
+    const activeB = activeBoard();
+    if (activeB && activeB.id === editingBoardId) {
+      const emojiBadge = boardEl.querySelector(".board-emoji-badge");
+      if (emojiBadge) {
+        emojiBadge.textContent = emoji;
+        emojiBadge.style.display = "inline";
+      }
+    }
+
+        const cardEl = document.querySelector(
+      `.board-card[data-id="${editingBoardId}"]`,
+    );
+    if (cardEl) {
+      const bodyEl = cardEl.querySelector(".board-card-body");
+      if (bodyEl) {
+        let emojiEl = bodyEl.querySelector(".board-card-emoji");
+        if (emoji) {
+          if (!emojiEl) {
+            emojiEl = document.createElement("span");
+            emojiEl.className = "board-card-emoji";
+            bodyEl.insertBefore(emojiEl, bodyEl.firstChild);
+          }
+          emojiEl.textContent = emoji;
+        } else if (emojiEl) {
+          emojiEl.remove();
+        }
+      }
+    }
+  });
+  boardEditorEmojiGrid.appendChild(item);
+});
+
+boardEditorClearEmojiBtn.addEventListener("click", () => {
+  if (!editingBoardId) return;
+  setBoardEmoji(editingBoardId, "");
+  updateEditorCurrentEmoji("");
+
+    const activeB = activeBoard();
+  if (activeB && activeB.id === editingBoardId) {
+    const emojiBadge = boardEl.querySelector(".board-emoji-badge");
+    if (emojiBadge) emojiBadge.style.display = "none";
+  }
+
+    const cardEl = document.querySelector(
+    `.board-card[data-id="${editingBoardId}"]`,
+  );
+  if (cardEl) {
+    const emojiEl = cardEl.querySelector(".board-card-emoji");
+    if (emojiEl) emojiEl.remove();
+  }
+});
+
+BOARD_COLORS.forEach((color) => {
+  const item = document.createElement("button");
+  item.type = "button";
+  item.className = "board-editor-color-item";
+  item.dataset.value = color.value;
+  item.title = color.name;
+
+  if (color.value === "") {
+    item.style.background = "var(--sidebar)";
+    item.style.border = "1px dashed var(--line)";
+    item.innerHTML =
+      '<span style="font-size: 10px; opacity: 0.5; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-transform: lowercase;">default</span>';
+  } else {
+    item.style.background = color.value;
+  }
+
+  item.addEventListener("click", () => {
+    if (!editingBoardId) return;
+    setBoardColor(editingBoardId, color.value);
+    updateColorPickerSelection(color.value);
+
+    const cardEl = document.querySelector(
+      `.board-card[data-id="${editingBoardId}"]`,
+    );
+    if (cardEl) {
+      if (color.value) {
+        cardEl.style.background = color.value;
+        cardEl.classList.add("has-custom-color");
+      } else {
+        cardEl.style.background = "";
+        cardEl.classList.remove("has-custom-color");
+      }
+    }
+  });
+  boardEditorColorGrid.appendChild(item);
+});
+
+boardEditorNameInput.addEventListener("input", () => {
+  if (!editingBoardId) return;
+  const newName = boardEditorNameInput.value.trim();
+  if (newName) {
+    renameBoard(editingBoardId, newName);
+
+    const activeB = activeBoard();
+    if (activeB && activeB.id === editingBoardId) {
+      const activeTitleEl = boardEl.querySelector(".board-title");
+      if (activeTitleEl) activeTitleEl.textContent = newName;
+    }
+
+    const cardEl = document.querySelector(
+      `.board-card[data-id="${editingBoardId}"]`,
+    );
+    if (cardEl) {
+      const cardNameEl = cardEl.querySelector(".board-card-name");
+      if (cardNameEl) cardNameEl.textContent = newName;
+    }
+  }
+});
+
+boardEditorCloseBtn.addEventListener("click", closeBoardEditor);
+boardEditorBackdrop.addEventListener("click", closeBoardEditor);
+
+boardEditorNameInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    closeBoardEditor();
+  }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    closeBoardEditor();
+  }
 });

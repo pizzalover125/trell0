@@ -285,7 +285,6 @@ export function openPalette() {
   setPlaceholder();
   renderBody();
 
-  // Robust focus mechanism to ensure input is focused during/after visibility transitions
   paletteInput.focus();
   requestAnimationFrame(() => paletteInput.focus());
   setTimeout(() => paletteInput.focus(), 0);

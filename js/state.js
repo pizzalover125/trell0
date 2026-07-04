@@ -44,6 +44,7 @@ function createDefaultState() {
         id: generateBoardId(),
         name: "My Board",
         emoji: "",
+        color: "",
         columns: JSON.parse(JSON.stringify(COLUMNS)),
       },
     ],
@@ -90,6 +91,8 @@ export function loadState() {
     if (parsed && typeof parsed === "object" && Array.isArray(parsed.boards)) {
       parsed.boards = parsed.boards.map((b) => ({
         ...b,
+        color: b.color || "",
+        emoji: b.emoji || "",
         columns: validateColumns(b.columns || []),
       }));
       if (!parsed.boards.some((b) => b.id === parsed.activeBoardId)) {
@@ -162,6 +165,7 @@ export function createBoard(name) {
     id: generateBoardId(),
     name: name || "Untitled",
     emoji: "",
+    color: "",
     columns: JSON.parse(JSON.stringify(COLUMNS)),
   };
   pushSnapshot();
@@ -183,6 +187,14 @@ export function setBoardEmoji(boardId, emoji) {
   if (!board) return;
   pushSnapshot();
   board.emoji = emoji || "";
+  saveState();
+}
+
+export function setBoardColor(boardId, color) {
+  const board = _state.boards.find((b) => b.id === boardId);
+  if (!board) return;
+  pushSnapshot();
+  board.color = color || "";
   saveState();
 }
 

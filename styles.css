@@ -1979,6 +1979,168 @@ body::after {
   }
 }
 
+#boardEditorModal {
+  padding: 20px 20px 16px;
+}
+
+.board-editor-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.board-editor-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.board-editor-input {
+  width: 100%;
+  padding: 10px 0;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--fg);
+  background: none;
+  border: none;
+  border-bottom: 1.5px solid var(--line);
+  border-radius: 0;
+  outline: none;
+  transition: border-color 0.2s var(--curve);
+}
+
+.board-editor-input::placeholder {
+  color: var(--fg);
+  opacity: 0.2;
+}
+
+.board-editor-input:focus {
+  border-color: color-mix(in srgb, var(--fg) 30%, transparent);
+}
+
+.board-editor-emoji-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.3;
+  font-size: 12px;
+  text-transform: lowercase;
+  letter-spacing: 0.03em;
+}
+
+.board-editor-current-emoji {
+  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  user-select: none;
+}
+
+.board-editor-clear-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--fg);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 0;
+  opacity: 0;
+  transition: opacity 0.2s var(--curve);
+}
+
+.board-editor-emoji-row:hover .board-editor-clear-emoji {
+  opacity: 0.5;
+}
+
+.board-editor-clear-emoji:hover {
+  opacity: 1 !important;
+}
+
+.board-editor-emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  max-height: 104px;
+  overflow-y: auto;
+}
+
+.board-editor-emoji-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  aspect-ratio: 1;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background-color 0.15s var(--curve);
+}
+
+.board-editor-emoji-item:hover {
+  background: var(--hover);
+}
+
+.board-editor-color-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.board-editor-color-item {
+  aspect-ratio: 1.5;
+  border-radius: 8px;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.2s var(--curve);
+  overflow: hidden;
+}
+
+.board-editor-color-item:hover {
+  border-color: color-mix(in srgb, var(--fg) 20%, transparent);
+}
+
+.board-editor-color-item.selected {
+  border-color: var(--fg);
+}
+
+.board-card.has-custom-color {
+  border: none;
+  box-shadow: 0 6px 20px -8px rgba(0, 0, 0, 0.15);
+}
+.board-card.has-custom-color:hover {
+  box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.35);
+}
+.board-card.has-custom-color .board-card-name {
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+.board-card.has-custom-color .board-card-count {
+  color: #ffffff;
+  opacity: 0.8;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.board-card.has-custom-color .board-card-del {
+  color: #ffffff;
+}
+
+.board {
+  transition:
+    opacity 0.4s var(--curve),
+    transform 0.4s var(--curve),
+    background 0.4s var(--curve);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

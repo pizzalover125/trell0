@@ -54,6 +54,51 @@
       </div>
     </div>
 
+    <div class="editor-overlay" id="boardEditorOverlay">
+      <div class="editor-backdrop" id="boardEditorBackdrop"></div>
+      <div class="editor-modal" id="boardEditorModal">
+        <button
+          class="editor-close"
+          id="boardEditorCloseBtn"
+          title="close (esc)"
+        ></button>
+          <div class="board-editor-scroll no-scrollbar">
+            <div class="board-editor-wrap">
+              <input
+                type="text"
+                class="board-editor-input"
+                id="boardEditorNameInput"
+                placeholder="board title"
+                autocomplete="off"
+              />
+
+              <div class="board-editor-emoji-row">
+                <span
+                  class="board-editor-current-emoji"
+                  id="boardEditorCurrentEmoji"
+                  >📋</span
+                >
+                <button
+                  type="button"
+                  class="board-editor-clear-emoji"
+                  id="boardEditorClearEmojiBtn"
+                ></button>
+              </div>
+              <div
+                class="board-editor-emoji-grid"
+                id="boardEditorEmojiGrid"
+              ></div>
+
+              <div
+                class="board-editor-color-grid"
+                id="boardEditorColorGrid"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="palette-overlay" id="paletteOverlay">
       <div class="palette-backdrop" id="paletteBackdrop"></div>
       <div
