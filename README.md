@@ -1,5 +1,7 @@
 # trell0
 
+<img width="770" height="373" alt="image" src="https://github.com/user-attachments/assets/1739a294-09c3-447c-b747-abe3699e27cd" />
+
 minimalist productivity tool. try it out at https://trell0.vercel.app/.
 
 ## what is a trello board?
