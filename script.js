@@ -1923,7 +1923,12 @@ function openPalette() {
   renderLead();
   setPlaceholder();
   renderBody();
+
+  // Robust focus mechanism to ensure input is focused during/after visibility transitions
+  paletteInput.focus();
   requestAnimationFrame(() => paletteInput.focus());
+  setTimeout(() => paletteInput.focus(), 0);
+  setTimeout(() => paletteInput.focus(), 50);
 }
 
 function closePalette() {
@@ -2531,7 +2536,10 @@ document.addEventListener(
 
     if (e.shiftKey && (e.key === "p" || e.key === "P" || e.code === "KeyP")) {
       e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
       togglePalette();
+      return;
     }
 
     if (e.shiftKey && (e.key === "b" || e.key === "B" || e.code === "KeyB")) {

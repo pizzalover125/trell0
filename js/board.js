@@ -124,7 +124,13 @@ function validateColumns(cols) {
     cards: Array.isArray(col.cards)
       ? col.cards.map((item) => {
           if (typeof item === "string")
-            return { body: item, color: "", tags: [], done: false, subtasks: [] };
+            return {
+              body: item,
+              color: "",
+              tags: [],
+              done: false,
+              subtasks: [],
+            };
           return {
             body: item?.body || "",
             color: item?.color || "",
@@ -152,6 +158,7 @@ export function shareBoard() {
   syncStateFromDOM();
   const boardData = {
     name: board.name,
+    emoji: board.emoji || "",
     columns: board.columns,
   };
   try {
@@ -197,6 +204,7 @@ export function checkShareLink() {
         const newBoard = {
           id: generateBoardId(),
           name: boardData.name + " (Shared)",
+          emoji: boardData.emoji || "",
           columns: validateColumns(boardData.columns),
         };
 
@@ -397,6 +405,15 @@ export function buildBoard() {
   const board = activeBoard();
   if (!board) return;
 
+  const titleArea = document.createElement("div");
+  titleArea.className = "board-title-area";
+
+  const emojiBadge = document.createElement("span");
+  emojiBadge.className = "board-emoji-badge";
+  emojiBadge.textContent = board.emoji || "";
+  if (!board.emoji) emojiBadge.style.display = "none";
+  titleArea.appendChild(emojiBadge);
+
   const titleEl = document.createElement("div");
   titleEl.className = "board-title";
   titleEl.textContent = board.name;
@@ -427,7 +444,8 @@ export function buildBoard() {
       titleEl.blur();
     }
   });
-  boardEl.appendChild(titleEl);
+  titleArea.appendChild(titleEl);
+  boardEl.appendChild(titleArea);
 
   const boardColumnsEl = document.createElement("div");
   boardColumnsEl.className = "board-columns no-scrollbar";
@@ -508,7 +526,9 @@ export function buildBoard() {
       e.preventDefault();
       cards.classList.add("drag-over");
       if (!dragged) return;
-      cards.querySelectorAll(".subtask-hover").forEach((c) => c.classList.remove("subtask-hover"));
+      cards
+        .querySelectorAll(".subtask-hover")
+        .forEach((c) => c.classList.remove("subtask-hover"));
       const targetCard = e.target.closest(".card");
       if (targetCard && targetCard !== dragged) {
         targetCard.classList.add("subtask-hover");
@@ -520,13 +540,17 @@ export function buildBoard() {
     cards.addEventListener("dragleave", (e) => {
       if (!cards.contains(e.relatedTarget)) {
         cards.classList.remove("drag-over");
-        cards.querySelectorAll(".subtask-hover").forEach((c) => c.classList.remove("subtask-hover"));
+        cards
+          .querySelectorAll(".subtask-hover")
+          .forEach((c) => c.classList.remove("subtask-hover"));
       }
     });
     cards.addEventListener("drop", (e) => {
       e.preventDefault();
       cards.classList.remove("drag-over");
-      cards.querySelectorAll(".subtask-hover").forEach((c) => c.classList.remove("subtask-hover"));
+      cards
+        .querySelectorAll(".subtask-hover")
+        .forEach((c) => c.classList.remove("subtask-hover"));
       const targetCard = e.target.closest(".card");
       if (targetCard && dragged && targetCard !== dragged) {
         makeSubtask(dragged, targetCard);
@@ -576,12 +600,16 @@ function makeSubtask(draggedEl, targetEl) {
   if (!board) return;
 
   const sourceColEl = draggedEl.closest(".column");
-  const sourceColIdx = [...sourceColEl.parentElement.children].indexOf(sourceColEl);
+  const sourceColIdx = [...sourceColEl.parentElement.children].indexOf(
+    sourceColEl,
+  );
   const sourceCardsEl = sourceColEl.querySelector(".cards");
   const sourceCardIdx = [...sourceCardsEl.children].indexOf(draggedEl);
 
   const targetColEl = targetEl.closest(".column");
-  const targetColIdx = [...targetColEl.parentElement.children].indexOf(targetColEl);
+  const targetColIdx = [...targetColEl.parentElement.children].indexOf(
+    targetColEl,
+  );
   const targetCardsEl = targetColEl.querySelector(".cards");
   let targetCardIdx = [...targetCardsEl.children].indexOf(targetEl);
 
@@ -659,6 +687,9 @@ function createBoardCard(b, i, grid) {
 
   card.innerHTML =
     '<div class="board-card-body">' +
+    (b.emoji
+      ? '<span class="board-card-emoji">' + esc(b.emoji) + "</span>"
+      : "") +
     '<span class="board-card-name">' +
     esc(b.name) +
     "</span>" +
@@ -879,7 +910,9 @@ document.addEventListener(
       if (!el) return;
       const cards = el.closest(".cards");
       if (!cards) return;
-      document.querySelectorAll(".subtask-hover").forEach((c) => c.classList.remove("subtask-hover"));
+      document
+        .querySelectorAll(".subtask-hover")
+        .forEach((c) => c.classList.remove("subtask-hover"));
       const targetCard = el.closest(".card");
       if (targetCard && targetCard !== touchDragged) {
         targetCard.classList.add("subtask-hover");

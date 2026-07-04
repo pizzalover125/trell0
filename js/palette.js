@@ -22,6 +22,7 @@ import {
   getRedoStack,
   activeBoard,
   createBoard,
+  setBoardEmoji,
   esc,
 } from "./state.js";
 import {
@@ -50,6 +51,87 @@ let palAddColumn = 0;
 let palHintTimeout = null;
 
 const TIMER_PRESETS = [5, 10, 15, 25, 45];
+
+const EMOJIS = [
+  "📋",
+  "📝",
+  "✅",
+  "📌",
+  "📎",
+  "📂",
+  "📊",
+  "📈",
+  "📉",
+  "📑",
+  "🚀",
+  "🎯",
+  "⚡",
+  "💡",
+  "🔥",
+  "🌟",
+  "💎",
+  "🏆",
+  "🎨",
+  "🛠️",
+  "🌱",
+  "🌿",
+  "🌳",
+  "🌺",
+  "🌻",
+  "🌞",
+  "🌙",
+  "⭐",
+  "🌊",
+  "🌈",
+  "📁",
+  "🗂️",
+  "📅",
+  "📆",
+  "⏰",
+  "🔔",
+  "💼",
+  "🎒",
+  "📖",
+  "🖊️",
+  "👤",
+  "👥",
+  "💪",
+  "🙌",
+  "🤝",
+  "👋",
+  "🎓",
+  "💭",
+  "🧠",
+  "🎉",
+  "💚",
+  "💙",
+  "💜",
+  "💛",
+  "❤️",
+  "🖤",
+  "🤍",
+  "🩵",
+  "🎵",
+  "🎶",
+  "🎮",
+  "📷",
+  "🎁",
+  "🎪",
+  "🎭",
+  "🧩",
+  "🏗️",
+  "💻",
+  "🐶",
+  "🐱",
+  "🐼",
+  "🐸",
+  "🦊",
+  "🐰",
+  "🦁",
+  "🐯",
+];
+
+let palEmojiBoardId = null;
 
 function columnNames() {
   const board = activeBoard();
@@ -143,6 +225,12 @@ function commandList() {
         closePalette();
       },
     },
+    {
+      icon: ICON_BOARD,
+      label: "board emoji",
+      keywords: "emoji board icon smiley set change pick symbol",
+      run: enterEmojiMode,
+    },
   ];
 }
 
@@ -196,7 +284,12 @@ export function openPalette() {
   renderLead();
   setPlaceholder();
   renderBody();
+
+  // Robust focus mechanism to ensure input is focused during/after visibility transitions
   paletteInput.focus();
+  requestAnimationFrame(() => paletteInput.focus());
+  setTimeout(() => paletteInput.focus(), 0);
+  setTimeout(() => paletteInput.focus(), 50);
 }
 
 export function closePalette() {
@@ -226,7 +319,9 @@ function renderLead() {
             ? "themes"
             : palMode === "board"
               ? "boards"
-              : "timer";
+              : palMode === "emoji" || palMode === "emoji-pick"
+                ? "emoji"
+                : "timer";
     paletteLead.innerHTML =
       '<span class="mode-chip" role="button" tabindex="0">' +
       label +
@@ -246,6 +341,10 @@ function setPlaceholder() {
     paletteInput.placeholder = "work/break minutes \u2014 e.g. 25/5";
   else if (palMode === "board")
     paletteInput.placeholder = "pick a board or type new name\u2026";
+  else if (palMode === "emoji")
+    paletteInput.placeholder = "pick a board to set its emoji\u2026";
+  else if (palMode === "emoji-pick")
+    paletteInput.placeholder = "search emojis\u2026";
   else paletteInput.placeholder = "type a command\u2026";
 }
 
@@ -256,6 +355,8 @@ function renderBody() {
   else if (palMode === "pomodoro") renderPomodoroMode();
   else if (palMode === "theme") renderThemeMode();
   else if (palMode === "board") renderBoardMode();
+  else if (palMode === "emoji") renderEmojiMode();
+  else if (palMode === "emoji-pick") renderEmojiPick();
   paletteFooterEl.style.display = palMode === "root" ? "" : "none";
 }
 
@@ -573,6 +674,172 @@ function submitTheme() {
   closePalette();
 }
 
+function enterEmojiMode() {
+  palMode = "emoji";
+  palSelected = 0;
+  paletteInput.value = "";
+  renderLead();
+  setPlaceholder();
+  renderBody();
+  requestAnimationFrame(() => paletteInput.focus());
+}
+
+function renderEmojiMode() {
+  const q = paletteInput.value.trim().toLowerCase();
+  const _state = getState();
+  const filtered = q
+    ? _state.boards.filter((b) => b.name.toLowerCase().includes(q))
+    : _state.boards;
+  palRows = filtered;
+  if (palSelected >= filtered.length) palSelected = 0;
+
+  paletteBody.innerHTML = "";
+  if (filtered.length === 0) {
+    paletteBody.innerHTML =
+      '<div class="palette-empty">no matching boards</div>';
+    return;
+  }
+
+  filtered.forEach((b, i) => {
+    const row = document.createElement("button");
+    row.className = "palette-row" + (i === palSelected ? " selected" : "");
+    row.type = "button";
+    row.style.animationDelay = i * 18 + "ms";
+    row.innerHTML =
+      '<span class="row-icon" style="font-size:20px">' +
+      (b.emoji || '<span style="opacity:0.2">&#x1f4cb;</span>') +
+      '</span><span class="row-label">' +
+      esc(b.name) +
+      "</span>";
+    row.addEventListener("click", () => enterEmojiPick(b.id));
+    row.addEventListener("mousemove", () => setSelected(i));
+    paletteBody.appendChild(row);
+  });
+}
+
+function submitEmoji() {
+  const board = palRows[palSelected];
+  if (board) enterEmojiPick(board.id);
+}
+
+function enterEmojiPick(boardId) {
+  palMode = "emoji-pick";
+  palEmojiBoardId = boardId;
+  palSelected = 0;
+  paletteInput.value = "";
+  renderLead();
+  setPlaceholder();
+  renderBody();
+  requestAnimationFrame(() => paletteInput.focus());
+}
+function renderEmojiPick() {
+  const q = paletteInput.value.trim();
+  const board = getState().boards.find((b) => b.id === palEmojiBoardId);
+  if (!board) {
+    backToRoot();
+    return;
+  }
+
+  paletteBody.innerHTML = "";
+
+  const header = document.createElement("div");
+  header.className = "emoji-pick-header";
+  if (q) {
+    header.textContent = "filtering emojis\u2026";
+  } else {
+    header.innerHTML =
+      "pick emoji for <strong>" + esc(board.name) + "</strong>";
+  }
+  paletteBody.appendChild(header);
+
+  const grid = document.createElement("div");
+  grid.className = "emoji-grid";
+  grid.id = "emojiGrid";
+
+  const filtered = q ? EMOJIS.filter((e) => e.includes(q)) : EMOJIS;
+
+  palRows = [];
+  if (!q) {
+    palRows.push({ type: "none" });
+  }
+  filtered.forEach((emoji) => {
+    palRows.push({ type: "emoji", value: emoji });
+  });
+
+  if (palSelected >= palRows.length) {
+    palSelected = Math.max(0, palRows.length - 1);
+  }
+
+  if (!q) {
+    const noneBtn = document.createElement("button");
+    noneBtn.className = "emoji-cell" + (!board.emoji ? " active" : "");
+    if (palSelected === 0) noneBtn.classList.add("selected");
+    noneBtn.textContent = "\u2715";
+    noneBtn.title = "remove emoji";
+    noneBtn.type = "button";
+    noneBtn.addEventListener("click", () => {
+      setBoardEmoji(board.id, "");
+      closePalette();
+    });
+    noneBtn.addEventListener("mousemove", () => setEmojiSelected(0));
+    grid.appendChild(noneBtn);
+  }
+
+  filtered.forEach((emoji, i) => {
+    const btn = document.createElement("button");
+    const idx = q ? i : i + 1;
+    btn.className = "emoji-cell" + (board.emoji === emoji ? " active" : "");
+    if (palSelected === idx) btn.classList.add("selected");
+    btn.textContent = emoji;
+    btn.type = "button";
+    btn.addEventListener("click", () => {
+      setBoardEmoji(board.id, emoji);
+      closePalette();
+    });
+    btn.addEventListener("mousemove", () => setEmojiSelected(idx));
+    grid.appendChild(btn);
+  });
+
+  paletteBody.appendChild(grid);
+}
+
+function setEmojiSelected(idx) {
+  if (idx < 0 || idx >= palRows.length) return;
+  palSelected = idx;
+  const cells = paletteBody.querySelectorAll(".emoji-cell");
+  cells.forEach((cell, i) => cell.classList.toggle("selected", i === idx));
+  if (cells[idx]) cells[idx].scrollIntoView({ block: "nearest" });
+}
+
+function submitEmojiPick() {
+  const item = palRows[palSelected];
+  const board = getState().boards.find((b) => b.id === palEmojiBoardId);
+  if (board && item) {
+    if (item.type === "none") {
+      setBoardEmoji(board.id, "");
+    } else if (item.type === "emoji") {
+      setBoardEmoji(board.id, item.value);
+    }
+  }
+  closePalette();
+}
+
+function getGridCols() {
+  const gridEl = document.getElementById("emojiGrid");
+  if (!gridEl) return 8;
+  const cells = gridEl.querySelectorAll(".emoji-cell");
+  if (cells.length <= 1) return 8;
+  const firstTop = cells[0].offsetTop;
+  let cols = 0;
+  for (let i = 0; i < cells.length; i++) {
+    if (cells[i].offsetTop === firstTop) {
+      cols++;
+    } else {
+      break;
+    }
+  }
+  return cols || 8;
+}
 function enterBoardMode() {
   palMode = "board";
   palSelected = 0;
@@ -738,6 +1005,11 @@ paletteInput.addEventListener("input", () => {
   } else if (palMode === "board") {
     palSelected = 0;
     renderBoardMode();
+  } else if (palMode === "emoji") {
+    palSelected = 0;
+    renderEmojiMode();
+  } else if (palMode === "emoji-pick") {
+    renderEmojiPick();
   }
 });
 
@@ -750,13 +1022,19 @@ paletteInput.addEventListener("keydown", (e) => {
     else if (palMode === "pomodoro") submitPomodoro();
     else if (palMode === "theme") submitTheme();
     else if (palMode === "board") submitBoard();
+    else if (palMode === "emoji") submitEmoji();
+    else if (palMode === "emoji-pick") submitEmojiPick();
   } else if (
     e.key === "Backspace" &&
     paletteInput.value === "" &&
     palMode !== "root"
   ) {
     e.preventDefault();
-    backToRoot();
+    if (palMode === "emoji-pick") {
+      enterEmojiMode();
+    } else {
+      backToRoot();
+    }
   }
 });
 
@@ -766,7 +1044,12 @@ paletteOverlay.addEventListener("keydown", (e) => {
     closePalette();
     return;
   }
-  if (palMode === "root" || palMode === "theme" || palMode === "board") {
+  if (
+    palMode === "root" ||
+    palMode === "theme" ||
+    palMode === "board" ||
+    palMode === "emoji"
+  ) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setSelected(Math.min(palSelected + 1, palRows.length - 1));
@@ -774,6 +1057,28 @@ paletteOverlay.addEventListener("keydown", (e) => {
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSelected(Math.max(palSelected - 1, 0));
+      paletteInput.focus();
+    }
+  } else if (palMode === "emoji-pick") {
+    if (
+      e.key === "ArrowDown" ||
+      e.key === "ArrowUp" ||
+      e.key === "ArrowLeft" ||
+      e.key === "ArrowRight"
+    ) {
+      e.preventDefault();
+      const cols = getGridCols();
+      let nextSelected = palSelected;
+      if (e.key === "ArrowRight") {
+        nextSelected = Math.min(palSelected + 1, palRows.length - 1);
+      } else if (e.key === "ArrowLeft") {
+        nextSelected = Math.max(palSelected - 1, 0);
+      } else if (e.key === "ArrowDown") {
+        nextSelected = Math.min(palSelected + cols, palRows.length - 1);
+      } else if (e.key === "ArrowUp") {
+        nextSelected = Math.max(palSelected - cols, 0);
+      }
+      setEmojiSelected(nextSelected);
       paletteInput.focus();
     }
   }

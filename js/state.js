@@ -43,6 +43,7 @@ function createDefaultState() {
       {
         id: generateBoardId(),
         name: "My Board",
+        emoji: "",
         columns: JSON.parse(JSON.stringify(COLUMNS)),
       },
     ],
@@ -160,6 +161,7 @@ export function createBoard(name) {
   const board = {
     id: generateBoardId(),
     name: name || "Untitled",
+    emoji: "",
     columns: JSON.parse(JSON.stringify(COLUMNS)),
   };
   pushSnapshot();
@@ -173,6 +175,14 @@ export function renameBoard(boardId, name) {
   if (!board) return;
   pushSnapshot();
   board.name = name.trim() || "Untitled";
+  saveState();
+}
+
+export function setBoardEmoji(boardId, emoji) {
+  const board = _state.boards.find((b) => b.id === boardId);
+  if (!board) return;
+  pushSnapshot();
+  board.emoji = emoji || "";
   saveState();
 }
 

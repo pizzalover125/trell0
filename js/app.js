@@ -34,7 +34,10 @@ document.addEventListener(
 
     if (e.shiftKey && (e.key === "p" || e.key === "P" || e.code === "KeyP")) {
       e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
       togglePalette();
+      return;
     }
 
     if (e.shiftKey && (e.key === "b" || e.key === "B" || e.code === "KeyB")) {
